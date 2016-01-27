@@ -1,8 +1,18 @@
-﻿// Learn more about F# at http://fsharp.org. See the 'F# Tutorial' project
-// for more guidance on F# programming.
+﻿
+#r "../packages/FSharp.Data.2.2.5/lib/net40/FSharp.Data.dll"
+open FSharp.Data
 
-#load "Library1.fs"
-open ProductSearchRelevance
+[<Literal>]
+let trainDataPath = "../data/train.csv"
+type TrainData = CsvProvider<trainDataPath>
+let trainData = TrainData.GetSample()
 
-// Define your library scripting code here
+[<Literal>]
+let testDataPath = "../data/test.csv"
+type TestData = CsvProvider<testDataPath>
+let testData = TestData.GetSample()
+
+trainData.Rows |> Seq.length
+testData.Rows |> Seq.length
+
 
