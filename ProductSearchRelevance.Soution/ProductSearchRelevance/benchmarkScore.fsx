@@ -1,6 +1,12 @@
 ﻿
 #r "../packages/FSharp.Data.2.2.5/lib/net40/FSharp.Data.dll"
+#r "../packages/Accord.Statistics.3.0.2/lib/net40/Accord.Statistics.dll"
+
 open FSharp.Data
+open Accord.Statistics
+open Accord.Statistics.Links
+open Accord.Statistics.Models.Regression
+open Accord.Statistics.Models.Regression.Fitting
 
 [<Literal>]
 let trainDataPath = "../data/train.csv"
@@ -45,12 +51,6 @@ let test =
                         description = getProductDescription r.Product_uid})
     |> Seq.toArray
 
-#time
-
-//let wordMatch (words:string) title desc =
-//    let words' = words.Split(' ')
-//    words' Seq.map(fun w -> )
-
 //word_match <- function(words,title,desc){
 //  n_title <- 0
 //  n_desc <- 0
@@ -63,27 +63,57 @@ let test =
 //  }
 //  return(c(n_title,nwords,n_desc))
 //}
-//
-//cat("Get number of words and word matching title in train\n")
+let wordMatch (words:string) title (desc:option<string>) =
+    let words' = words.Split(' ')
+    let uniqueWords = words' |> Seq.distinct
+    let numberOfWords = uniqueWords |> Seq.length
+    let pattern = uniqueWords |> Seq.map(fun w -> "(^| )" + w + "($| )")
+    let numberInTitle =  pattern |> Seq.filter(fun w -> w = title) |> Seq.length
+    let numberInDescription =
+        if desc.IsNone then 0
+        else pattern |> Seq.filter(fun w -> w = desc.Value) |> Seq.length
+    numberInTitle,numberOfWords,numberInDescription
+
+
 //train_words <- as.data.frame(t(mapply(word_match,train$search_term,train$product_title,train$product_description)))
 //train$nmatch_title <- train_words[,1]
 //train$nwords <- train_words[,2]
 //train$nmatch_desc <- train_words[,3]
-//
-//cat("Get number of words and word matching title in test\n")
 //test_words <- as.data.frame(t(mapply(word_match,test$search_term,test$product_title,test$product_description)))
 //test$nmatch_title <- test_words[,1]
 //test$nwords <- test_words[,2]
 //test$nmatch_desc <- test_words[,3]
-//
-//rm(train_words,test_words)
-//
-//cat("A simple linear model on number of words and number of words that match\n")
+let trainInput = 
+    train 
+    |> Seq.map(fun w -> wordMatch w.phrase w.title w.description)
+    |> Seq.map(fun (t,w,d) -> [|(float)t;(float)w;(float)d|])
+    |> Seq.toArray
+
+let trainOutput = 
+    train
+    |> Seq.map(fun t -> t.relivance)
+    |> Seq.toArray
+
+let testInput = 
+    test 
+    |> Seq.map(fun w -> wordMatch w.phrase w.title w.description)
+    |> Seq.map(fun (t,w,d) -> [|(float)t;(float)w;(float)d|])
+    |> Seq.toArray
+
 //glm_model <- glm(relevance~nmatch_title+nmatch_desc+nwords,data=train)
 //test_relevance <- predict(glm_model,test)
 //test_relevance <- ifelse(test_relevance>3,3,test_relevance)
 //test_relevance <- ifelse(test_relevance<1,1,test_relevance)
-//
+let regression = new GeneralizedLinearRegression(new ProbitLinkFunction(), 3)
+let teacher = new IterativeReweightedLeastSquares(regression)
+
+let rec runTeacher delta =
+    let newDelta = teacher.Run(trainInput,trainOutput)
+    if delta > 0.001 then
+        runTeacher newDelta
+
+runTeacher 0.0
+
 //submission <- data.frame(id=test$id,relevance=test_relevance)
 //write_csv(submission,"benchmark_submission.csv")
 //print(Sys.time()-t)
