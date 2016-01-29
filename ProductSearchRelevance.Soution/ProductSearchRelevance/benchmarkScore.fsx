@@ -51,38 +51,16 @@ let test =
                         description = getProductDescription r.Product_uid})
     |> Seq.toArray
 
-//word_match <- function(words,title,desc){
-//  n_title <- 0
-//  n_desc <- 0
-//  words <- unlist(strsplit(words," "))
-//  nwords <- length(words)
-//  for(i in 1:length(words)){
-//    pattern <- paste("(^| )",words[i],"($| )",sep="")
-//    n_title <- n_title + grepl(pattern,title,perl=TRUE,ignore.case=TRUE)
-//    n_desc <- n_desc + grepl(pattern,desc,perl=TRUE,ignore.case=TRUE)
-//  }
-//  return(c(n_title,nwords,n_desc))
-//}
 let wordMatch (words:string) title (desc:option<string>) =
     let words' = words.Split(' ')
     let uniqueWords = words' |> Seq.distinct
     let numberOfWords = uniqueWords |> Seq.length
-    let pattern = uniqueWords |> Seq.map(fun w -> "(^| )" + w + "($| )")
-    let numberInTitle =  pattern |> Seq.filter(fun w -> w = title) |> Seq.length
+    let numberInTitle =  uniqueWords |> Seq.filter(fun w -> w = title) |> Seq.length
     let numberInDescription =
         if desc.IsNone then 0
-        else pattern |> Seq.filter(fun w -> w = desc.Value) |> Seq.length
+        else uniqueWords |> Seq.filter(fun w -> w = desc.Value) |> Seq.length
     numberInTitle,numberOfWords,numberInDescription
 
-
-//train_words <- as.data.frame(t(mapply(word_match,train$search_term,train$product_title,train$product_description)))
-//train$nmatch_title <- train_words[,1]
-//train$nwords <- train_words[,2]
-//train$nmatch_desc <- train_words[,3]
-//test_words <- as.data.frame(t(mapply(word_match,test$search_term,test$product_title,test$product_description)))
-//test$nmatch_title <- test_words[,1]
-//test$nwords <- test_words[,2]
-//test$nmatch_desc <- test_words[,3]
 let trainInput = 
     train 
     |> Seq.map(fun w -> wordMatch w.phrase w.title w.description)
