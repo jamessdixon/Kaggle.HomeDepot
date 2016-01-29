@@ -53,8 +53,8 @@
     <None Include="Script.fsx" />
     <Content Include="packages.config" />
     <None Include="sklearnRandomForest.fsx" />
-    <None Include="benchmarkScorefsx.fsx" />
     <None Include="benchmarkScore.fsx" />
+    <None Include="exploreData.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Data">

@@ -1,104 +1,89 @@
-﻿//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//# Word cloud code adopted from http://www.r-bloggers.com/word-clouds-using-text-mining/
-//library(readr)
-//library(sqldf)
-//library(wordcloud)
-//library(tm)
-//
-//#cat("Reading data\n")
-//train <- read_csv('../input/train.csv')
-//test <- read_csv('../input/test.csv')
-//desc <- read_csv('../input/product_descriptions.csv')
-//attr <- read_csv('../input/attributes.csv')
-//
-//n_words <- function(keyword){
-//  return(length(unlist(strsplit(keyword,"\\S+"))))
+﻿
+#r "../packages/FSharp.Data.2.2.5/lib/net40/FSharp.Data.dll"
+open FSharp.Data
+
+[<Literal>]
+let trainDataPath = "../data/train.csv"
+type TrainData = CsvProvider<trainDataPath>
+let trainData = TrainData.GetSample()
+
+[<Literal>]
+let testDataPath = "../data/test.csv"
+type TestData = CsvProvider<testDataPath>
+let testData = TestData.GetSample()
+
+[<Literal>]
+let productDescriptionsPath = "../data/product_descriptions.csv"
+type ProductDescriptions = CsvProvider<productDescriptionsPath>
+let productDescriptions = ProductDescriptions.GetSample()
+
+let getProductDescription uid = 
+    let pd = productDescriptions.Rows 
+             |> Seq.tryFind(fun pd -> pd.Product_uid = uid)
+    if pd.IsSome then
+        Some pd.Value.Product_description
+    else None
+
+type Train = {id:int;title:string;uid:int; relivance:float;phrase:string;description:option<string>}
+type Test = {id:int;title:string;uid:int;phrase:string;description:option<string>}
+
+let train = 
+    trainData.Rows 
+    |> Seq.map(fun r -> {id=r.Id;title=r.Product_title;
+                        uid=r.Product_uid;
+                        relivance=(float)r.Relevance;
+                        phrase=r.Search_term;
+                        description = getProductDescription r.Product_uid})
+    |> Seq.toArray
+
+
+let test =
+    testData.Rows
+    |> Seq.map(fun r -> {id=r.Id;title=r.Product_title;
+                        uid=r.Product_uid;
+                        phrase=r.Search_term;
+                        description = getProductDescription r.Product_uid})
+    |> Seq.toArray
+
+#time
+
+//let wordMatch (words:string) title desc =
+//    let words' = words.Split(' ')
+//    words' Seq.map(fun w -> )
+
+//word_match <- function(words,title,desc){
+//  n_title <- 0
+//  n_desc <- 0
+//  words <- unlist(strsplit(words," "))
+//  nwords <- length(words)
+//  for(i in 1:length(words)){
+//    pattern <- paste("(^| )",words[i],"($| )",sep="")
+//    n_title <- n_title + grepl(pattern,title,perl=TRUE,ignore.case=TRUE)
+//    n_desc <- n_desc + grepl(pattern,desc,perl=TRUE,ignore.case=TRUE)
+//  }
+//  return(c(n_title,nwords,n_desc))
 //}
 //
-//get_word_frequency <- function(vec){
-//  trainCorpus <- Corpus(VectorSource(vec))
-//  trainCorpus = tm_map(trainCorpus, content_transformer(tolower))
-//  trainCorpus = tm_map(trainCorpus, removePunctuation)
-//  trainCorpus = tm_map(trainCorpus, removeWords, stopwords("english"))
-//  dtm_matrix = TermDocumentMatrix(trainCorpus, control = list(minWordLength = 1))
-//  m = as.matrix(dtm_matrix)
-//  v = sort(rowSums(m), decreasing = TRUE)
-//  return(v)
-//}
-//```
+//cat("Get number of words and word matching title in train\n")
+//train_words <- as.data.frame(t(mapply(word_match,train$search_term,train$product_title,train$product_description)))
+//train$nmatch_title <- train_words[,1]
+//train$nwords <- train_words[,2]
+//train$nmatch_desc <- train_words[,3]
 //
-//## Exploring search terms
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//st_train <- unique(train$search_term)
-//st_test <- unique(test$search_term)
-//diff_terms_1 <- setdiff(st_train,st_test)
-//diff_terms_2 <- setdiff(st_test,st_train)
-//common_terms <- intersect(st_train,st_test)
+//cat("Get number of words and word matching title in test\n")
+//test_words <- as.data.frame(t(mapply(word_match,test$search_term,test$product_title,test$product_description)))
+//test$nmatch_title <- test_words[,1]
+//test$nwords <- test_words[,2]
+//test$nmatch_desc <- test_words[,3]
 //
-//(paste("Number of search terms in train :",(length(st_train)),sep=" "))
-//(paste("Number of search terms in test :",(length(st_test)),sep=" "))
-//print(paste("Number of terms in train not in test :",(length(diff_terms_1)),sep=" "))
-//print(paste("Number of terms in test not in train :",(length(diff_terms_2)),sep=" "))
-//print(paste("Number of common terms in test and train :",(length(common_terms)),sep=" "))
-//```
+//rm(train_words,test_words)
 //
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//train_term_words <- sapply(st_train,n_words)
-//cat('Number of words in train terms\n')
-//print(table(train_term_words))
-//hist(train_term_words,main="Number of words in train search terms", xlab="n_words",ylab="Frequency",col="skyblue1")
-//```
+//cat("A simple linear model on number of words and number of words that match\n")
+//glm_model <- glm(relevance~nmatch_title+nmatch_desc+nwords,data=train)
+//test_relevance <- predict(glm_model,test)
+//test_relevance <- ifelse(test_relevance>3,3,test_relevance)
+//test_relevance <- ifelse(test_relevance<1,1,test_relevance)
 //
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//test_term_words <- sapply(st_test,n_words)
-//cat('Number of words in test terms\n')
-//print(table(test_term_words))
-//hist(test_term_words,main="Number of words in test search terms", xlab="n_words",ylab="Frequency",col="skyblue1")
-//```
-//
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//cat('Words in train terms\n')
-//train_term_frequency <- get_word_frequency(st_train)
-//set.seed(1)
-//wordcloud(names(train_term_frequency), train_term_frequency, min.freq = 60)
-//```
-//
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//cat('Words in test terms\n')
-//test_term_frequency <- get_word_frequency(st_test)
-//set.seed(1)
-//wordcloud(names(test_term_frequency), test_term_frequency, min.freq = 60)
-//```
-//
-//## Exploring product data
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//train_pid <- unique(train$product_uid)
-//test_pid <- unique(test$product_uid)
-//common_pid <- intersect(train_pid,test_pid)
-//unique_train_pid <- setdiff(train_pid,test_pid)
-//unique_test_pid <- setdiff(test_pid,train_pid)
-//
-//print(paste("Number of unique product ids in train :",(length(train_pid)),sep=" "))
-//print(paste("Number of unique product ids in test :",(length(test_pid)),sep=" "))
-//print(paste("Number of common product ids :",(length(common_pid)),sep=" "))
-//print(paste("Number of pid in train not in test :",(length(unique_train_pid)),sep=" "))
-//print(paste("Number of pid in test not in train :",(length(unique_test_pid)),sep=" "))
-//```
-//
-//## Exploring product description
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//desc_length <- sapply(desc$product_description,n_words)
-//cat('Distribution of number of words in description\n')
-//print(quantile(desc_length,probs = seq(0,1,.1)))
-//hist(desc_length,main="Number of words in description", xlab="n_words",ylab="Frequency",col="skyblue1")
-//```
-//
-//## Exploring attribute data
-//```{r alert=FALSE, message = FALSE, echo = FALSE}
-//nids <- unique(attr$product_uid)
-//print(paste("Number of ids with attributes:",(length(nids)),sep=" "))
-//nattr <- sqldf('select product_uid,count(*) as n_attr from attr group by product_uid')
-//nattr <- nattr[!is.na(nattr$product_uid),]
-//cat('Distribution of number of attributes for products\n')
-//print(quantile(nattr$n_attr,probs = seq(0,1,.1)))
-//hist(nattr$n_attr,main="Number of attributes per product", xlab="N Attributes",ylab="Frequency",col="skyblue1")
+//submission <- data.frame(id=test$id,relevance=test_relevance)
+//write_csv(submission,"benchmark_submission.csv")
+//print(Sys.time()-t)
