@@ -42,7 +42,6 @@ let train =
                         description = getProductDescription r.Product_uid})
     |> Seq.toArray
 
-
 let test =
     testData.Rows
     |> Seq.map(fun r -> {id=r.Id;title=r.Product_title;
@@ -60,6 +59,9 @@ let wordMatch (words:string) title (desc:option<string>) =
         if desc.IsNone then 0
         else uniqueWords |> Seq.filter(fun w -> w = desc.Value) |> Seq.length
     numberInTitle,numberOfWords,numberInDescription
+
+//2, 100001, "Simpson Strong-Tie 12-Gauge Angle", "angle bracket", 3M
+
 
 let trainInput = 
     train 

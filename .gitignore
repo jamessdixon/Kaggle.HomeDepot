@@ -238,3 +238,4 @@ _Pvt_Extensions
 # Data Filea For The Contest
 *.csv
 relevance_instructions.docx
+.Rproj.user
