@@ -34,6 +34,16 @@ let productDescription uid =
         Some pd.Value.Product_description
     else None
 
+
+//WordMatch needs to have a fuzzy match
+//The sample R script uses a regex like this:
+//pattern <- paste("(^| )",words[i],"($| )",sep="")
+//I assume we can dup using .NET Reg Ex class like this:
+//let pattern = @"\b(\w+)\s\1\b";
+//let rgx = new Regex(pattern, RegexOptions.IgnoreCase);
+//let matches = rgx.Matches(input)
+//Until then, it does an exact match
+
 let wordMatch (words:string) title (desc:option<string>) =
     let words' = words.Split(' ')
     let uniqueWords = words' |> Seq.distinct
@@ -70,6 +80,9 @@ let rec runTeacher delta =
         runTeacher newDelta
 
 runTeacher 0.0
+
+//The results are wrong, and I am not sure why
+//Need to look at Accord's glm closer
 
 let testOutput = regression.Compute(testInput)
 let submission = 
