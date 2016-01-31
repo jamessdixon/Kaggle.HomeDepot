@@ -83,7 +83,6 @@ let submission =
     |> Seq.map(fun (id,o) -> String.Format("{0},{1}",id, o))
     |> Seq.toArray
 
-
 let outputPath = __SOURCE_DIRECTORY__ + @"..\..\data\benchmark_submission_FSharp.csv"
 File.WriteAllLines(outputPath,submission)
 
