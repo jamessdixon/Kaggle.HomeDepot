@@ -1,9 +1,9 @@
 ﻿
-#r "../packages/Accord.3.0.2/lib/net40/Accord.dll"
-#r "../packages/FSharp.Data.2.2.5/lib/net40/FSharp.Data.dll"
-#r "../packages/Accord.Math.3.0.2/lib/net40/Accord.Math.dll"
-#r "../packages/Accord.Statistics.3.0.2/lib/net40/Accord.Statistics.dll"
-#r "../packages/FSharp.Collections.ParallelSeq.1.0.2/lib/net40/FSharp.Collections.ParallelSeq.dll"
+#r "../packages/Accord/lib/net40/Accord.dll"
+#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
+#r "../packages/Accord.Math/lib/net40/Accord.Math.dll"
+#r "../packages/Accord.Statistics/lib/net40/Accord.Statistics.dll"
+#r "../packages/FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
 
 open System
 open System.IO
