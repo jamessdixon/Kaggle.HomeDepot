@@ -1,5 +1,6 @@
 ﻿
 #r "../packages/Accord.3.0.2/lib/net40/Accord.dll"
+#r "../packages/FSharp.Collections.ParallelSeq.1.0.2/lib/net40/FSharp.Collections.ParallelSeq.dll"
 #r "../packages/FSharp.Data.2.2.5/lib/net40/FSharp.Data.dll"
 #r "../packages/Accord.Math.3.0.2/lib/net40/Accord.Math.dll"
 #r "../packages/Accord.Statistics.3.0.2/lib/net40/Accord.Statistics.dll"
@@ -8,6 +9,7 @@ open FSharp.Data
 open Accord.Math
 open Accord.Statistics
 open Accord.Statistics.Links
+open FSharp.Collections.ParallelSeq
 open Accord.Statistics.Models.Regression
 open Accord.Statistics.Models.Regression.Fitting
 
@@ -34,7 +36,6 @@ let productDescription uid =
         Some pd.Value.Product_description
     else None
 
-
 //WordMatch needs to have a fuzzy match
 //The sample R script uses a regex like this:
 //pattern <- paste("(^| )",words[i],"($| )",sep="")
@@ -44,32 +45,32 @@ let productDescription uid =
 //let matches = rgx.Matches(input)
 //Until then, it does an exact match
 
-let wordMatch (words:string) title (desc:option<string>) =
+let wordMatch (words:string) (title:string) (desc:option<string>) =
     let words' = words.Split(' ')
     let uniqueWords = words' |> Seq.distinct
     let numberOfWords = uniqueWords |> Seq.length
-    let numberInTitle =  uniqueWords |> Seq.filter(fun w -> w = title) |> Seq.length
+    let numberInTitle =  uniqueWords |> Seq.filter(fun w -> title.ToLower().Contains(w.ToLower())) |> Seq.length
     let numberInDescription =
         if desc.IsNone then 0
-        else uniqueWords |> Seq.filter(fun w -> w = desc.Value) |> Seq.length
+        else uniqueWords |> Seq.filter(fun w -> desc.Value.ToLower().Contains(w.ToLower())) |> Seq.length
     numberInTitle,numberInDescription,numberOfWords
 
 let trainInput = 
     train.Rows 
-    |> Seq.map(fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
-    |> Seq.map(fun (t,d,w) -> [|(float)t;(float)d;(float)w|])
-    |> Seq.toArray
+    |> PSeq.map(fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
+    |> PSeq.map(fun (t,d,w) -> [|(float)t;(float)d;(float)w|])
+    |> PSeq.toArray
 
 let trainOutput = 
     train.Rows
-    |> Seq.map(fun t -> (float)t.Relevance)
-    |> Seq.toArray
+    |> PSeq.map(fun t -> (float)t.Relevance)
+    |> PSeq.toArray
 
 let testInput = 
     test.Rows 
-    |> Seq.map(fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
-    |> Seq.map(fun (t,d,w) -> [|(float)t;(float)d;(float)w|])
-    |> Seq.toArray
+    |> PSeq.map(fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
+    |> PSeq.map(fun (t,d,w) -> [|(float)t;(float)d;(float)w|])
+    |> PSeq.toArray
 
 let regression = new GeneralizedLinearRegression(new ProbitLinkFunction(), 3)
 let teacher = new IterativeReweightedLeastSquares(regression)
@@ -81,10 +82,14 @@ let rec runTeacher delta =
 
 runTeacher 0.0
 
+
 //The results are wrong, and I am not sure why
 //Need to look at Accord's glm closer
 
 let testOutput = regression.Compute(testInput)
+
+regression.Coefficients
+
 let submission = 
     Seq.zip test.Rows testOutput
     |> Seq.map(fun (r,o) -> r.Id, o)
