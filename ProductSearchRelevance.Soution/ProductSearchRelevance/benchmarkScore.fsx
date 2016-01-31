@@ -1,17 +1,18 @@
 ﻿
 #r "../packages/Accord.3.0.2/lib/net40/Accord.dll"
-#r "../packages/FSharp.Collections.ParallelSeq.1.0.2/lib/net40/FSharp.Collections.ParallelSeq.dll"
 #r "../packages/FSharp.Data.2.2.5/lib/net40/FSharp.Data.dll"
 #r "../packages/Accord.Math.3.0.2/lib/net40/Accord.Math.dll"
 #r "../packages/Accord.Statistics.3.0.2/lib/net40/Accord.Statistics.dll"
+#r "../packages/FSharp.Collections.ParallelSeq.1.0.2/lib/net40/FSharp.Collections.ParallelSeq.dll"
 
+open System
+open System.IO
 open FSharp.Data
 open Accord.Math
 open Accord.Statistics
 open Accord.Statistics.Links
 open FSharp.Collections.ParallelSeq
-open Accord.Statistics.Models.Regression
-open Accord.Statistics.Models.Regression.Fitting
+open Accord.Statistics.Models.Regression.Linear
 
 [<Literal>]
 let trainDataPath = "../data/train.csv"
@@ -72,28 +73,19 @@ let testInput =
     |> PSeq.map(fun (t,d,w) -> [|(float)t;(float)d;(float)w|])
     |> PSeq.toArray
 
-let regression = new GeneralizedLinearRegression(new ProbitLinkFunction(), 3)
-let teacher = new IterativeReweightedLeastSquares(regression)
-
-let rec runTeacher delta =
-    let newDelta = teacher.Run(trainInput,trainOutput)
-    if delta > 0.001 then
-        runTeacher newDelta
-
-runTeacher 0.0
-
-
-//The results are wrong, and I am not sure why
-//Need to look at Accord's glm closer
-
-let testOutput = regression.Compute(testInput)
-
-regression.Coefficients
+let target = new MultipleLinearRegression(3, true);
+let error = target.Regress(trainInput, trainOutput);
+let testOutput = target.Compute(testInput)
 
 let submission = 
     Seq.zip test.Rows testOutput
-    |> Seq.map(fun (r,o) -> r.Id, o)
+    |> Seq.map(fun (r,o) -> r.Id.ToString(), o.ToString())
+    |> Seq.map(fun (id,o) -> String.Format("{0},{1}",id, o))
+    |> Seq.toArray
 
+
+let outputPath = __SOURCE_DIRECTORY__ + @"..\..\data\benchmark_submission_FSharp.csv"
+File.WriteAllLines(outputPath,submission)
 
 
 
