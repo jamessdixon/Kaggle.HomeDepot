@@ -3,19 +3,15 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>aabcb671-ef2f-4e2d-8f92-841f86b2d3d1</ProjectGuid>
-    <ProjectHome>
-    </ProjectHome>
-    <StartupFile>ProductSereachRelevance.Python.py</StartupFile>
+    <ProjectGuid>15839224-f770-46bf-b054-bb17571cbeb3</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>ProductSearchRelevance.Python.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
-    <InterpreterId>{80659ab7-4d53-4e0c-8588-a766116cbd46}</InterpreterId>
-    <LaunchProvider>IronPython (.NET) launcher</LaunchProvider>
-    <InterpreterVersion>2.7</InterpreterVersion>
     <OutputPath>.</OutputPath>
     <Name>ProductSearchRelevance.Python</Name>
-    <RootNamespace>ProductSereachRelevance.Python</RootNamespace>
+    <RootNamespace>ProductSearchRelevance.Python</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -26,10 +22,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="ProductSereachRelevance.Python.py" />
-  </ItemGroup>
-  <ItemGroup>
-    <InterpreterReference Include="{80659ab7-4d53-4e0c-8588-a766116cbd46}\2.7" />
+    <Compile Include="ProductSearchRelevance.Python.py" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
