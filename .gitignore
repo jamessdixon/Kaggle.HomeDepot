@@ -230,7 +230,7 @@ FakesAssemblies/
 _Pvt_Extensions
 
 # Paket dependency manager
-.paket/paket.exe
+paket.exe
 
 # FAKE - F# Make
 .fake/
