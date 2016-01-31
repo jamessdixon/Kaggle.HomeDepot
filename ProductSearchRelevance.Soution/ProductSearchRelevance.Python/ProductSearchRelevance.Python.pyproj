@@ -4,7 +4,8 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>aabcb671-ef2f-4e2d-8f92-841f86b2d3d1</ProjectGuid>
-    <ProjectHome>.</ProjectHome>
+    <ProjectHome>
+    </ProjectHome>
     <StartupFile>ProductSereachRelevance.Python.py</StartupFile>
     <SearchPath>
     </SearchPath>
@@ -13,7 +14,7 @@
     <LaunchProvider>IronPython (.NET) launcher</LaunchProvider>
     <InterpreterVersion>2.7</InterpreterVersion>
     <OutputPath>.</OutputPath>
-    <Name>ProductSereachRelevance.Python</Name>
+    <Name>ProductSearchRelevance.Python</Name>
     <RootNamespace>ProductSereachRelevance.Python</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
