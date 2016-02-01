@@ -26,30 +26,29 @@ let productDescriptionsPath = "../data/product_descriptions.csv"
 type Products = CsvProvider<productDescriptionsPath>
 let products = Products.GetSample()
 
-let productDescription uid = 
-    products.Rows 
-    |> Seq.tryFind(fun pd -> pd.Product_uid = uid)
-    |> Option.map (fun pd -> pd.Product_description)
+let productDescMap =
+    products.Rows
+    |> Seq.map (fun pd -> pd.Product_uid, pd.Product_description)
+    |> Map.ofSeq
+let inline productDescription uid = productDescMap |> Map.find uid
 
 (* wordMatch needs to have a fuzzy match
    The sample R script uses a regex like this:
    pattern <- paste("(^| )",words[i],"($| )",sep="") *)
-let wordMatch (words:string) (title:string) (desc:string option) =
+let wordMatch (words:string) (title:string) (desc:string) =
     let isMatch input word = // TODO should stem words, e.g. "angles" -> "angle"
         Regex.IsMatch(input, sprintf @"\b%s\b" (Regex.Escape word), RegexOptions.IgnoreCase)
     let words' = words.Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
     let uniqueWords = words' |> Array.distinct
     let numberInTitle = uniqueWords |> Array.filter (isMatch title) |> Array.length
-    let numberInDescription =
-        match desc with
-        | Some desc -> uniqueWords |> Array.filter (isMatch desc) |> Array.length
-        | None -> 0
+    let numberInDescription = uniqueWords |> Array.filter (isMatch desc) |> Array.length
     numberInTitle, numberInDescription, uniqueWords.Length 
 
+let inline toFloatArray (a,b,c) = [| float a; float b; float c |]
+
 let trainInput = 
-    train.Rows 
-    |> PSeq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
-    |> PSeq.map (fun (t,d,w) -> [| float t; float d; float w |])
+    train.Rows
+    |> PSeq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
     |> PSeq.toArray
 
 let trainOutput = 
@@ -59,8 +58,7 @@ let trainOutput =
 
 let testInput = 
     test.Rows 
-    |> PSeq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
-    |> PSeq.map (fun (t,d,w) -> [| float t; float d; float w |])
+    |> PSeq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
     |> PSeq.toArray
 
 let target = MultipleLinearRegression(3, true);
@@ -69,8 +67,8 @@ let testOutput = target.Compute(testInput)
 
 let submission = 
     Seq.zip test.Rows testOutput
-    |> Seq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
-    |> Seq.toArray
+    |> PSeq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
+    |> PSeq.toArray
 
 let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp.csv"
 File.WriteAllLines(outputPath, submission)
