@@ -10,3 +10,4 @@ NUGET
       Accord.Math (>= 3.0.2)
     FSharp.Collections.ParallelSeq (1.0.2)
     FSharp.Data (2.2.5)
+    StemmersNet (1.1.1)
