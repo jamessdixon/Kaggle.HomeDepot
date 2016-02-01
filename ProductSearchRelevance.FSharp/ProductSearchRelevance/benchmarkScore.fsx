@@ -9,7 +9,6 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 open FSharp.Data
-open FSharp.Collections.ParallelSeq
 open Accord.Statistics.Models.Regression.Linear
 open Iveonik.Stemmers
 
@@ -53,8 +52,8 @@ let inline toFloatArray (a,b,c) = [| float a; float b; float c |]
 
 let trainInput = 
     train.Rows
-    |> PSeq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
-    |> PSeq.toArray
+    |> Seq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.toArray
 
 let trainOutput = 
     train.Rows
@@ -63,8 +62,8 @@ let trainOutput =
 
 let testInput = 
     test.Rows 
-    |> PSeq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
-    |> PSeq.toArray
+    |> Seq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.toArray
 
 let target = MultipleLinearRegression(3, true)
 let error = target.Regress(trainInput, trainOutput)
