@@ -5,16 +5,17 @@ VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{07D9947A-4D31-45A8-AE85-CD5B596BDFC1}"
 	ProjectSection(SolutionItems) = preProject
+		.paket\paket.bootstrapper.exe = .paket\paket.bootstrapper.exe
 		paket.dependencies = paket.dependencies
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "data", "data", "{4A90FFAE-7006-4DE0-886F-0AD0124663A9}"
 	ProjectSection(SolutionItems) = preProject
-		data\attributes.csv = data\attributes.csv
-		data\product_descriptions.csv = data\product_descriptions.csv
-		data\sample_submission.csv = data\sample_submission.csv
-		data\test.csv = data\test.csv
-		data\train.csv = data\train.csv
+		..\data\attributes.csv = ..\data\attributes.csv
+		..\data\product_descriptions.csv = ..\data\product_descriptions.csv
+		..\data\sample_submission.csv = ..\data\sample_submission.csv
+		..\data\test.csv = ..\data\test.csv
+		..\data\train.csv = ..\data\train.csv
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ProductSearchRelevance.FSharp", "ProductSearchRelevance\ProductSearchRelevance.FSharp.fsproj", "{14EDCDC3-8BEE-4716-ADA7-BF48F414160C}"
