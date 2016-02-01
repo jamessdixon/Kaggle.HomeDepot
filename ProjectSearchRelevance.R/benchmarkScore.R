@@ -1,8 +1,8 @@
 library(readr)
 cat("Reading data\n")
-train <- read_csv('F:/Git/Kaggle.HomeDepot/ProjectSearchRelevanceR/input/train.csv')
-test <- read_csv('F:/Git/Kaggle.HomeDepot/ProjectSearchRelevanceR/input/test.csv')
-desc <- read_csv('F:/Git/Kaggle.HomeDepot/ProjectSearchRelevanceR/input/product_descriptions.csv')
+train <- read_csv('../data/train.csv')
+test <- read_csv('../data/test.csv')
+desc <- read_csv('../data/product_descriptions.csv')
 
 cat("Merge description with train and test data \n")
 train <- merge(train,desc, by.x = "product_uid", by.y = "product_uid", all.x = TRUE, all.y = FALSE)
