@@ -66,7 +66,11 @@ let testInput =
     |> Seq.toArray
 
 let target = MultipleLinearRegression(3, true)
-let error = target.Regress(trainInput, trainOutput)
+let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
+let observationCount = trainInput |> Seq.length |> float
+let sme = sumOfSquaredErrors / observationCount
+let rsme = sqrt(sme)
+
 let testOutput = target.Compute(testInput)
 
 let submission = 
@@ -75,3 +79,7 @@ let submission =
     |> Seq.toList
 let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp.csv"
 File.WriteAllLines(outputPath, "id,relevance" :: submission)
+
+
+
+
