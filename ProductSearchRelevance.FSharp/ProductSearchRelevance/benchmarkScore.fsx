@@ -59,7 +59,7 @@ let inline toFloatArray (a,b,c) = [| float a; float b; float c |]
 
 let trainInput = 
     train.Rows
-    |> Seq.map (fun w -> stringContainsMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.map (fun w -> stemmedWordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
     |> Seq.toArray
 
 let trainOutput = 
@@ -73,24 +73,22 @@ let observationCount = trainInput |> Seq.length |> float
 let sme = sumOfSquaredErrors / observationCount
 let rsme = sqrt(sme)
 //0.49665 - stemmed
-//0.5063 - string contains
+//0.50783 - kaggle reported from stemmed
 
-//0.50783 - kaggle reported
+//0.5063 - string contains
 
 let testInput = 
     test.Rows 
-    |> Seq.map (fun w -> stringContainsMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.map (fun w -> stemmedWordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
     |> Seq.toArray
 
 let testOutput = target.Compute(testInput)
+let testOutput' = testOutput |> Seq.map(fun v -> if v > 3.0 then 3.0 else v)
 
 let submission = 
-    Seq.zip test.Rows testOutput
+    Seq.zip test.Rows testOutput'
     |> Seq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
     |> Seq.toList
 let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp.csv"
 File.WriteAllLines(outputPath, "id,relevance" :: submission)
-
-
-
 
