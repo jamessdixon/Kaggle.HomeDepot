@@ -39,7 +39,7 @@ let stem word =
     if stemmed.Length < word.Length then stemmed // HACK workaround stemmer output like "vanity" -> "vaniti"
     else word
 
-let wordMatch (words:string) (title:string) (desc:string) =
+let stemmedWordMatch (words:string) (title:string) (desc:string) =
     let isMatch input word =
         let word' = stem word |> Regex.Escape // TODO strip punctuation?
         Regex.IsMatch(input, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
@@ -48,11 +48,18 @@ let wordMatch (words:string) (title:string) (desc:string) =
     let numberInDescription = uniqueWords |> Array.filter (isMatch desc) |> Array.length
     numberInTitle, numberInDescription, uniqueWords.Length 
 
+let stringContainsMatch (words:string) (title:string) (desc:string) =
+    let words' = words.Split(' ')
+    let uniqueWords = words' |> Array.distinct
+    let numberInTitle = uniqueWords |> Array.filter (fun w -> title.ToLower().Contains(w.ToLower())) |> Array.length
+    let numberInDescription = uniqueWords |> Array.filter (fun w -> desc.ToLower().Contains(w.ToLower())) |> Array.length
+    numberInTitle, numberInDescription, uniqueWords.Length 
+
 let inline toFloatArray (a,b,c) = [| float a; float b; float c |]
 
 let trainInput = 
     train.Rows
-    |> Seq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.map (fun w -> stringContainsMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
     |> Seq.toArray
 
 let trainOutput = 
@@ -60,16 +67,20 @@ let trainOutput =
     |> Seq.map (fun t -> float t.Relevance)
     |> Seq.toArray
 
-let testInput = 
-    test.Rows 
-    |> Seq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
-    |> Seq.toArray
-
 let target = MultipleLinearRegression(3, true)
 let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
 let observationCount = trainInput |> Seq.length |> float
 let sme = sumOfSquaredErrors / observationCount
 let rsme = sqrt(sme)
+//0.49665 - stemmed
+//0.5063 - string contains
+
+//0.50783 - kaggle reported
+
+let testInput = 
+    test.Rows 
+    |> Seq.map (fun w -> stringContainsMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.toArray
 
 let testOutput = target.Compute(testInput)
 
