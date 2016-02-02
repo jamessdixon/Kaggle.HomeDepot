@@ -88,11 +88,16 @@ let features isMatch (words:string) title desc attribs productBrand =
           match searchedBrand with // is query brand name in product title?
           | Some b -> if b |> containedIn title then 1 else -1
           | None -> 0
-    [| float titleMatches.Length
+    [| float uniqueWords.Length
+       float words.Length
+       float title.Length
+       float desc.Length
+       float wordMatchCount
+       float titleMatches.Length
+       float titleMatches.Length / float uniqueWords.Length
+       float descMatches.Length / float uniqueWords.Length
        float descMatches.Length
        float attrMatches.Length
-       float uniqueWords.Length
-       float wordMatchCount
        float brandNameMatch |]
 
 let isStemmedMatch input word =
@@ -118,16 +123,19 @@ let trainOutput =
     |> Seq.map (fun t -> float t.Relevance)
     |> Seq.toArray
 
-let target = MultipleLinearRegression(6, true)
+let target = MultipleLinearRegression(11, true)
 let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
 let observationCount = trainInput |> Seq.length |> float
 let sme = sumOfSquaredErrors / observationCount
 let rsme = sqrt(sme)
-//0.49359 - better brand name matching
+//0.48940 - added title & desc length feature
+//0.49059 - added desc word match ratio
+//0.49080 - added title word match ratio
+//0.49279 - added query length feature
+//0.49359 - better brand matching
 //0.49409 - attributes + some brand matching
 //0.49665 - stemmed
 //0.50783 - kaggle reported from stemmed
-
 //0.5063 - string contains
 
 let testInput = 
