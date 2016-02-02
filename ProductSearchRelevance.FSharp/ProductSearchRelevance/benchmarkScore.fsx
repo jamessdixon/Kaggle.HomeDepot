@@ -11,6 +11,7 @@ open System.Text.RegularExpressions
 open FSharp.Data
 open Accord.Statistics.Models.Regression.Linear
 open Iveonik.Stemmers
+open FSharp.Collections.ParallelSeq
 
 type Train = CsvProvider<"../data/train.csv">
 let train = Train.GetSample()
@@ -36,6 +37,12 @@ let attribMap =
     |> Seq.groupBy (fun (i,_,_) -> i)
     |> Map.ofSeq
 
+let brands =
+  attributes.Rows
+  |> Seq.where (fun r -> r.Name = "MFG Brand Name")
+  |> Seq.map (fun r -> r.Value.ToLowerInvariant().Replace(" & ", " and ").Replace(".", "").Replace("'", "").Replace("-", " ").Trim()) // TODO better sanitize
+  |> Set.ofSeq
+
 let attribs uid =
     match attribMap |> Map.tryFind uid with
     | Some a ->
@@ -60,7 +67,10 @@ let stem word =
     if stemmed.Length < word.Length then stemmed // HACK workaround stemmer output like "vanity" -> "vaniti"
     else word
 
-let wordMatch isMatch (words:string) title desc attribs brandName =
+let containedIn (input:string) word =
+    input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
+
+let features isMatch (words:string) title desc attribs productBrand =
     let uniqueWords = words.Split([|' '|], StringSplitOptions.RemoveEmptyEntries) |> Array.distinct
     let titleMatches = uniqueWords |> Array.filter (isMatch title)
     let descMatches = uniqueWords |> Array.filter (isMatch desc)
@@ -70,24 +80,32 @@ let wordMatch isMatch (words:string) title desc attribs brandName =
         |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
         |> Seq.length
     let brandNameMatch =
-        match brandName with
-        | Some bn -> if uniqueWords |> Array.exists (isMatch bn) then 1 else 0
-        | None -> 0
-    [| float titleMatches.Length
+        match productBrand with // does query contain product brand?
+        | Some bn -> if uniqueWords |> Array.exists (containedIn bn) then 1 else 0
+        | None ->
+          // does query contain any brand name?
+          let searchedBrand = brands |> Set.filter (containedIn words) |> Seq.tryHead
+          match searchedBrand with // is query brand name in product title?
+          | Some b -> if b |> containedIn title then 1 else -1
+          | None -> 0
+    [| float uniqueWords.Length
+       float words.Length
+       float title.Length
+       float desc.Length
+       float wordMatchCount
+       float titleMatches.Length
+       float titleMatches.Length / float uniqueWords.Length
+       float descMatches.Length / float uniqueWords.Length
        float descMatches.Length
        float attrMatches.Length
-       float uniqueWords.Length
-       float wordMatchCount
        float brandNameMatch |]
 
 let isStemmedMatch input word =
     let word' = stem word |> Regex.Escape // TODO strip punctuation?
     Regex.IsMatch(input, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
-let stemmedWordMatch = wordMatch isStemmedMatch
+let stemmedWordMatch = features isStemmedMatch
 
-let isContainsMatch (input:string) word =
-    input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
-let stringContainsMatch = wordMatch isContainsMatch
+let stringContainsMatch = features containedIn
 
 let trainInput = 
     train.Rows
@@ -105,14 +123,19 @@ let trainOutput =
     |> Seq.map (fun t -> float t.Relevance)
     |> Seq.toArray
 
-let target = MultipleLinearRegression(6, true)
+let target = MultipleLinearRegression(11, true)
 let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
 let observationCount = trainInput |> Seq.length |> float
 let sme = sumOfSquaredErrors / observationCount
 let rsme = sqrt(sme)
+//0.48940 - added title & desc length feature
+//0.49059 - added desc word match ratio
+//0.49080 - added title word match ratio
+//0.49279 - added query length feature
+//0.49359 - better brand matching
+//0.49409 - attributes + some brand matching
 //0.49665 - stemmed
 //0.50783 - kaggle reported from stemmed
-
 //0.5063 - string contains
 
 let testInput = 
