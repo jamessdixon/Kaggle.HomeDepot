@@ -12,20 +12,17 @@ open FSharp.Data
 open Accord.Statistics.Models.Regression.Linear
 open Iveonik.Stemmers
 
-[<Literal>]
-let trainDataPath = "../data/train.csv"
-type Train = CsvProvider<trainDataPath>
+type Train = CsvProvider<"../data/train.csv">
 let train = Train.GetSample()
 
-[<Literal>]
-let testDataPath = "../data/test.csv"
-type Test = CsvProvider<testDataPath>
+type Test = CsvProvider<"../data/test.csv">
 let test = Test.GetSample()
 
-[<Literal>]
-let productDescriptionsPath = "../data/product_descriptions.csv"
-type Products = CsvProvider<productDescriptionsPath>
+type Products = CsvProvider<"../data/product_descriptions.csv">
 let products = Products.GetSample()
+
+type Attributes = CsvProvider<"../data/attributes.csv">
+let attributes = Attributes.GetSample()
 
 let productDescMap =
     products.Rows
@@ -33,33 +30,74 @@ let productDescMap =
     |> Map.ofSeq
 let inline productDescription uid = productDescMap |> Map.find uid
 
+let attribMap =
+    attributes.Rows
+    |> Seq.map (fun r -> r.Product_uid, r.Name, r.Value)
+    |> Seq.groupBy (fun (i,_,_) -> i)
+    |> Map.ofSeq
+
+let attribs uid =
+    match attribMap |> Map.tryFind uid with
+    | Some a ->
+      let getAttrStr name (value:string) =
+          match value.ToLowerInvariant() with
+          | "yes" -> name // if true attrib, include attrib name
+          | "no"  -> String.Empty
+          | _     -> value
+      a |> Seq.map (fun (_, name, value) -> getAttrStr name value) |> String.concat " "
+    | None -> String.Empty
+
+let brandName uid =
+    match attribMap |> Map.tryFind uid with
+    | Some a ->
+      let brand = a |> Seq.tryFind (fun (_, name, _) -> name = "MFG Brand Name")
+      brand |> Option.map (fun (_, _, value) -> value)
+    | None -> None
+
 let stem word =
     let stemmer = EnglishStemmer() // NOTE stemmer not thread-safe
     let stemmed = stemmer.Stem word
     if stemmed.Length < word.Length then stemmed // HACK workaround stemmer output like "vanity" -> "vaniti"
     else word
 
-let stemmedWordMatch (words:string) (title:string) (desc:string) =
-    let isMatch input word =
-        let word' = stem word |> Regex.Escape // TODO strip punctuation?
-        Regex.IsMatch(input, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
+let wordMatch isMatch (words:string) title desc attribs brandName =
     let uniqueWords = words.Split([|' '|], StringSplitOptions.RemoveEmptyEntries) |> Array.distinct
-    let numberInTitle = uniqueWords |> Array.filter (isMatch title) |> Array.length
-    let numberInDescription = uniqueWords |> Array.filter (isMatch desc) |> Array.length
-    numberInTitle, numberInDescription, uniqueWords.Length 
+    let titleMatches = uniqueWords |> Array.filter (isMatch title)
+    let descMatches = uniqueWords |> Array.filter (isMatch desc)
+    let attrMatches = uniqueWords |> Array.filter (isMatch attribs)
+    let wordMatchCount =
+        uniqueWords
+        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
+        |> Seq.length
+    let brandNameMatch =
+        match brandName with
+        | Some bn -> if uniqueWords |> Array.exists (isMatch bn) then 1 else 0
+        | None -> 0
+    [| float titleMatches.Length
+       float descMatches.Length
+       float attrMatches.Length
+       float uniqueWords.Length
+       float wordMatchCount
+       float brandNameMatch |]
 
-let stringContainsMatch (words:string) (title:string) (desc:string) =
-    let words' = words.Split(' ')
-    let uniqueWords = words' |> Array.distinct
-    let numberInTitle = uniqueWords |> Array.filter (fun w -> title.ToLower().Contains(w.ToLower())) |> Array.length
-    let numberInDescription = uniqueWords |> Array.filter (fun w -> desc.ToLower().Contains(w.ToLower())) |> Array.length
-    numberInTitle, numberInDescription, uniqueWords.Length 
+let isStemmedMatch input word =
+    let word' = stem word |> Regex.Escape // TODO strip punctuation?
+    Regex.IsMatch(input, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
+let stemmedWordMatch = wordMatch isStemmedMatch
 
-let inline toFloatArray (a,b,c) = [| float a; float b; float c |]
+let isContainsMatch (input:string) word =
+    input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
+let stringContainsMatch = wordMatch isContainsMatch
 
 let trainInput = 
     train.Rows
-    |> Seq.map (fun w -> stemmedWordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.map (fun w ->
+        stemmedWordMatch
+          w.Search_term
+          w.Product_title
+          (productDescription w.Product_uid)
+          (attribs w.Product_uid)
+          (brandName w.Product_uid))
     |> Seq.toArray
 
 let trainOutput = 
@@ -67,7 +105,7 @@ let trainOutput =
     |> Seq.map (fun t -> float t.Relevance)
     |> Seq.toArray
 
-let target = MultipleLinearRegression(3, true)
+let target = MultipleLinearRegression(6, true)
 let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
 let observationCount = trainInput |> Seq.length |> float
 let sme = sumOfSquaredErrors / observationCount
@@ -79,11 +117,18 @@ let rsme = sqrt(sme)
 
 let testInput = 
     test.Rows 
-    |> Seq.map (fun w -> stemmedWordMatch w.Search_term w.Product_title (productDescription w.Product_uid) |> toFloatArray)
+    |> Seq.map (fun w ->
+        stemmedWordMatch
+          w.Search_term
+          w.Product_title
+          (productDescription w.Product_uid)
+          (attribs w.Product_uid)
+          (brandName w.Product_uid))
     |> Seq.toArray
 
 let testOutput = target.Compute(testInput)
-let testOutput' = testOutput |> Seq.map(fun v -> if v > 3.0 then 3.0 else v)
+let inline bracket n = Math.Max(1., Math.Min(3., n))
+let testOutput' = testOutput |> Seq.map bracket
 
 let submission = 
     Seq.zip test.Rows testOutput'
@@ -91,4 +136,3 @@ let submission =
     |> Seq.toList
 let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp.csv"
 File.WriteAllLines(outputPath, "id,relevance" :: submission)
-
