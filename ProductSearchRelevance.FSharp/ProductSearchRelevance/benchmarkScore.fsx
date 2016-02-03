@@ -12,6 +12,7 @@ open FSharp.Data
 open Accord.Statistics.Models.Regression.Linear
 open Iveonik.Stemmers
 open FSharp.Collections.ParallelSeq
+open System.Collections.Concurrent
 
 type Train = CsvProvider<"../data/train.csv">
 let train = Train.GetSample()
@@ -25,18 +26,21 @@ let products = Products.GetSample()
 type Attributes = CsvProvider<"../data/attributes.csv">
 let attributes = Attributes.GetSample()
 
+printfn "Building Product Description map..."
 let productDescMap =
     products.Rows
     |> Seq.map (fun pd -> pd.Product_uid, pd.Product_description)
     |> Map.ofSeq
 let inline productDescription uid = productDescMap |> Map.find uid
 
+printfn "Building Product Attribute map..."
 let attribMap =
     attributes.Rows
     |> Seq.map (fun r -> r.Product_uid, r.Name, r.Value)
     |> Seq.groupBy (fun (i,_,_) -> i)
     |> Map.ofSeq
 
+printfn "Building Brand Name set..."
 let brands =
   attributes.Rows
   |> Seq.where (fun r -> r.Name = "MFG Brand Name")
@@ -61,17 +65,16 @@ let brandName uid =
       brand |> Option.map (fun (_, _, value) -> value)
     | None -> None
 
-let stem word =
-    let stemmer = EnglishStemmer() // NOTE stemmer not thread-safe
-    let stemmed = stemmer.Stem word
-    if stemmed.Length < word.Length then stemmed // HACK workaround stemmer output like "vanity" -> "vaniti"
-    else word
+let stemDict = ConcurrentDictionary<string,string>(StringComparer.OrdinalIgnoreCase)
+let stem word = stemDict.GetOrAdd(word, (fun s -> (new EnglishStemmer()).Stem s))
+let splitOnSpaces (str:string) = str.Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
+let stemWords = splitOnSpaces >> Array.map stem >> String.concat " "
 
 let containedIn (input:string) word =
     input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
 
 let features isMatch (words:string) title desc attribs productBrand =
-    let uniqueWords = words.Split([|' '|], StringSplitOptions.RemoveEmptyEntries) |> Array.distinct
+    let uniqueWords = words |> splitOnSpaces |> Array.distinct
     let titleMatches = uniqueWords |> Array.filter (isMatch title)
     let descMatches = uniqueWords |> Array.filter (isMatch desc)
     let attrMatches = uniqueWords |> Array.filter (isMatch attribs)
@@ -102,32 +105,36 @@ let features isMatch (words:string) title desc attribs productBrand =
 
 let isStemmedMatch input word =
     let word' = stem word |> Regex.Escape // TODO strip punctuation?
-    Regex.IsMatch(input, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
+    Regex.IsMatch(stemWords input, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
 let stemmedWordMatch = features isStemmedMatch
 
 let stringContainsMatch = features containedIn
 
+printfn "Extracting training features..."
 let trainInput = 
     train.Rows
-    |> Seq.map (fun w ->
+    |> PSeq.ordered
+    |> PSeq.map (fun w ->
         stemmedWordMatch
           w.Search_term
           w.Product_title
           (productDescription w.Product_uid)
           (attribs w.Product_uid)
           (brandName w.Product_uid))
-    |> Seq.toArray
+    |> PSeq.toArray
 
 let trainOutput = 
     train.Rows
     |> Seq.map (fun t -> float t.Relevance)
     |> Seq.toArray
 
+printfn "Regressing..."
 let target = MultipleLinearRegression(11, true)
 let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
 let observationCount = trainInput |> Seq.length |> float
 let sme = sumOfSquaredErrors / observationCount
 let rsme = sqrt(sme)
+//0.48917 - stem all words for comparison
 //0.48940 - added title & desc length feature
 //0.49059 - added desc word match ratio
 //0.49080 - added title word match ratio
@@ -138,24 +145,29 @@ let rsme = sqrt(sme)
 //0.50783 - kaggle reported from stemmed
 //0.5063 - string contains
 
+printfn "Extracting testing features..."
 let testInput = 
-    test.Rows 
-    |> Seq.map (fun w ->
+    test.Rows
+    |> PSeq.ordered
+    |> PSeq.map (fun w ->
         stemmedWordMatch
           w.Search_term
           w.Product_title
           (productDescription w.Product_uid)
           (attribs w.Product_uid)
           (brandName w.Product_uid))
-    |> Seq.toArray
+    |> PSeq.toArray
 
+printfn "Predicting..."
 let testOutput = target.Compute(testInput)
 let inline bracket n = Math.Max(1., Math.Min(3., n))
 let testOutput' = testOutput |> Seq.map bracket
 
+printfn "Writing results..."
 let submission = 
-    Seq.zip test.Rows testOutput'
-    |> Seq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
-    |> Seq.toList
+    Seq.zip test.Rows testOutput
+    |> PSeq.ordered
+    |> PSeq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
+    |> PSeq.toList
 let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp.csv"
 File.WriteAllLines(outputPath, "id,relevance" :: submission)
