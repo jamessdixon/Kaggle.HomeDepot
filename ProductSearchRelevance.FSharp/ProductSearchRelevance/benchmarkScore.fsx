@@ -40,11 +40,22 @@ let attribMap =
     |> Seq.groupBy (fun (i,_,_) -> i)
     |> Map.ofSeq
 
+let sanitize (str:string) =
+  let clean = System.Text.StringBuilder(str.Length)
+  for char in str do
+    match char with
+    | c when Char.IsLetterOrDigit c || Char.IsWhiteSpace c ->
+      clean.Append char |> ignore
+    | '-' | '/' ->
+      clean.Append " " |> ignore
+    | _ -> ()
+  clean.ToString().TrimEnd()
+
 printfn "Building Brand Name set..."
 let brands =
   attributes.Rows
   |> Seq.where (fun r -> r.Name = "MFG Brand Name")
-  |> Seq.map (fun r -> r.Value.ToLowerInvariant().Replace(" & ", " and ").Replace(".", "").Replace("'", "").Replace("-", " ").Trim()) // TODO better sanitize
+  |> Seq.map (fun r -> r.Value.ToLowerInvariant().Replace(" & ", " and ") |> sanitize)
   |> Set.ofSeq
 
 let attribs uid =
@@ -104,8 +115,8 @@ let features isMatch (words:string) title desc attribs productBrand =
        float brandNameMatch |]
 
 let isStemmedMatch input word =
-    let word' = stem word |> Regex.Escape // TODO strip punctuation?
-    Regex.IsMatch(stemWords input, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
+    let word' = word |> sanitize |> stem |> Regex.Escape // TODO strip punctuation?
+    Regex.IsMatch(input |> sanitize |> stemWords, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
 let stemmedWordMatch = features isStemmedMatch
 
 let stringContainsMatch = features containedIn
@@ -134,6 +145,7 @@ let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
 let observationCount = trainInput |> Seq.length |> float
 let sme = sumOfSquaredErrors / observationCount
 let rsme = sqrt(sme)
+//0.48835 - sanitize text input
 //0.48917 - stem all words for comparison
 //0.48940 - added title & desc length feature
 //0.49059 - added desc word match ratio
