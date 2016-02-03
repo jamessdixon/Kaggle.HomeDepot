@@ -1,9 +1,10 @@
-﻿#r "../packages/Accord/lib/net40/Accord.dll"
+﻿#r "../packages/Accord/lib/net45/Accord.dll"
 #r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
-#r "../packages/Accord.Math/lib/net40/Accord.Math.dll"
-#r "../packages/Accord.Statistics/lib/net40/Accord.Statistics.dll"
+#r "../packages/Accord.Math/lib/net45/Accord.Math.dll"
+#r "../packages/Accord.Statistics/lib/net45/Accord.Statistics.dll"
 #r "../packages/FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
 #r "../packages/StemmersNet/lib/net20/StemmersNet.dll"
+#r "../packages/alglibnet2/lib/alglibnet2.dll"
 
 open System
 open System.IO
@@ -115,7 +116,7 @@ let features isMatch (words:string) title desc attribs productBrand =
        float brandNameMatch |]
 
 let isStemmedMatch input word =
-    let word' = word |> sanitize |> stem |> Regex.Escape // TODO strip punctuation?
+    let word' = word |> sanitize |> stem |> Regex.Escape
     Regex.IsMatch(input |> sanitize |> stemWords, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
 let stemmedWordMatch = features isStemmedMatch
 
@@ -137,14 +138,25 @@ let trainInput =
 let trainOutput = 
     train.Rows
     |> Seq.map (fun t -> float t.Relevance)
-    |> Seq.toArray
+
+let trainInputOutput =
+  Seq.zip trainInput trainOutput
+  |> Seq.map (fun (i,o) -> Array.append i [|o|])
+  |> array2D
 
 printfn "Regressing..."
-let target = MultipleLinearRegression(11, true)
-let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
-let observationCount = trainInput |> Seq.length |> float
-let sme = sumOfSquaredErrors / observationCount
-let rsme = sqrt(sme)
+let trees = 100
+let treeTrainSize = 0.2
+let info, f, r =
+  alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, trainInput.[0].Length - 1, 1, trees, treeTrainSize)
+//0.48737 = kaggle rsme; oobrmserror = 0.4776784128; rmserror = 0.4303968628
+//? = kaggle rsme; oobrmserror = 0.4147019175; rmserror = 0.3529753185
+
+//let target = MultipleLinearRegression(11, true)
+//let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
+//let observationCount = trainInput |> Seq.length |> float
+//let sme = sumOfSquaredErrors / observationCount
+//let rsme = sqrt(sme)
 //0.48835 - sanitize text input
 //0.48917 - stem all words for comparison
 //0.48940 - added title & desc length feature
@@ -170,16 +182,25 @@ let testInput =
           (brandName w.Product_uid))
     |> PSeq.toArray
 
-printfn "Predicting..."
-let testOutput = target.Compute(testInput)
 let inline bracket n = Math.Max(1., Math.Min(3., n))
-let testOutput' = testOutput |> Seq.map bracket
+
+printfn "Predicting..."
+let mutable result : float [] = [||]
+let submission =
+  test.Rows
+  |> Seq.mapi (fun i r ->
+      alglib.dfprocess(f, testInput.[i], &result) 
+      sprintf "%A,%A" r.Id (bracket result.[0]))
+  |> List.ofSeq
+
+//let testOutput = target.Compute(testInput)
+//let testOutput' = testOutput |> Seq.map bracket
 
 printfn "Writing results..."
-let submission = 
-    Seq.zip test.Rows testOutput
-    |> PSeq.ordered
-    |> PSeq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
-    |> PSeq.toList
-let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp.csv"
+//let submission = 
+//    Seq.zip test.Rows testOutput
+//    |> PSeq.ordered
+//    |> PSeq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
+//    |> PSeq.toList
+let outputPath = __SOURCE_DIRECTORY__ + @"../../data/rf_submission_FSharp.csv"
 File.WriteAllLines(outputPath, "id,relevance" :: submission)

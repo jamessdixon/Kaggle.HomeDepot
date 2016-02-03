@@ -8,6 +8,7 @@ NUGET
     Accord.Statistics (3.0.2)
       Accord (>= 3.0.2)
       Accord.Math (>= 3.0.2)
+    alglibnet2 (0.0.0)
     FSharp.Collections.ParallelSeq (1.0.2)
     FSharp.Data (2.2.5)
     StemmersNet (1.1.1)
