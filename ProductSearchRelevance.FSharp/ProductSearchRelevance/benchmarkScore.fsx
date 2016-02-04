@@ -148,7 +148,7 @@ printfn "Regressing..."
 let trees = 100
 let treeTrainSize = 0.2
 let info, f, r =
-  alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, trainInput.[0].Length - 1, 1, trees, treeTrainSize)
+  alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, trainInput.[0].Length, 1, trees, treeTrainSize)
 //0.48737 = kaggle rsme; oobrmserror = 0.4776784128; rmserror = 0.4303968628
 //? = kaggle rsme; oobrmserror = 0.4147019175; rmserror = 0.3529753185
 
