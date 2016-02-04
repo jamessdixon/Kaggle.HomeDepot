@@ -5,15 +5,15 @@
 #r "../packages/FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
 #r "../packages/StemmersNet/lib/net20/StemmersNet.dll"
 #r "../packages/alglibnet2/lib/alglibnet2.dll"
+#r "../packages/FuzzyString/lib/FuzzyString.dll"
+#load "StringUtils.fs"
 
 open System
 open System.IO
-open System.Text.RegularExpressions
 open FSharp.Data
-open Accord.Statistics.Models.Regression.Linear
-open Iveonik.Stemmers
 open FSharp.Collections.ParallelSeq
-open System.Collections.Concurrent
+open StringUtils
+open Accord.Statistics.Models.Regression.Linear
 
 type Train = CsvProvider<"../data/train.csv">
 let train = Train.GetSample()
@@ -40,25 +40,6 @@ let attribMap =
     |> Seq.map (fun r -> r.Product_uid, r.Name, r.Value)
     |> Seq.groupBy (fun (i,_,_) -> i)
     |> Map.ofSeq
-
-let sanitize (str:string) =
-  let clean = System.Text.StringBuilder(str.Length)
-  for char in str do
-    match char with
-    | c when Char.IsLetterOrDigit c || Char.IsWhiteSpace c ->
-      clean.Append char |> ignore
-    | '-' | '/' ->
-      clean.Append " " |> ignore
-    | _ -> ()
-  clean.ToString().TrimEnd()
-
-printfn "Building Brand Name set..."
-let brands =
-  attributes.Rows
-  |> Seq.where (fun r -> r.Name = "MFG Brand Name")
-  |> Seq.map (fun r -> r.Value.ToLowerInvariant().Replace(" & ", " and ") |> sanitize)
-  |> Set.ofSeq
-
 let attribs uid =
     match attribMap |> Map.tryFind uid with
     | Some a ->
@@ -70,6 +51,31 @@ let attribs uid =
       a |> Seq.map (fun (_, name, value) -> getAttrStr name value) |> String.concat " "
     | None -> String.Empty
 
+printfn "Building Brand Name set..."
+let brands =
+  attributes.Rows
+  |> Seq.where (fun r -> r.Name = "MFG Brand Name")
+  |> Seq.map (fun r -> r.Value.ToLowerInvariant().Replace(" & ", " and ") |> sanitize)
+  |> Set.ofSeq
+
+type Sample = {
+    Id : int
+    ProductId : int
+    Title : string
+    Description : string
+    Attributes : string
+    Query : string }
+let sample id productId title query =
+    { Id = id
+      ProductId = productId
+      Title = prepareText title
+      Description = prepareText <| productDescription productId
+      Attributes = prepareText <| attribs productId
+      Query = prepareText query }  
+
+let trainSamples =
+    train.Rows |> Seq.map (fun r -> sample r.Id r.Product_uid r.Product_title r.Search_term)
+
 let brandName uid =
     match attribMap |> Map.tryFind uid with
     | Some a ->
@@ -77,86 +83,73 @@ let brandName uid =
       brand |> Option.map (fun (_, _, value) -> value)
     | None -> None
 
-let stemDict = ConcurrentDictionary<string,string>(StringComparer.OrdinalIgnoreCase)
-let stem word = stemDict.GetOrAdd(word, (fun s -> (new EnglishStemmer()).Stem s))
-let splitOnSpaces (str:string) = str.Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
-let stemWords = splitOnSpaces >> Array.map stem >> String.concat " "
-
-let containedIn (input:string) word =
-    input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
-
-let features isMatch (words:string) title desc attribs productBrand =
-    let uniqueWords = words |> splitOnSpaces |> Array.distinct
-    let titleMatches = uniqueWords |> Array.filter (isMatch title)
-    let descMatches = uniqueWords |> Array.filter (isMatch desc)
-    let attrMatches = uniqueWords |> Array.filter (isMatch attribs)
+let isMatch = startsWithMatch
+let features sample productBrand =
+    let queryWords = sample.Query |> splitOnSpaces |> Array.distinct
+    let titleMatches = queryWords |> Array.filter (isMatch sample.Title)
+    let descMatches = queryWords |> Array.filter (isMatch sample.Description)
+    let attrMatches = queryWords |> Array.filter (isMatch sample.Attributes)
     let wordMatchCount =
-        uniqueWords
-        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
+        queryWords
+        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.distinct |> Seq.contains w)
         |> Seq.length
     let brandNameMatch =
         match productBrand with // does query contain product brand?
-        | Some bn -> if uniqueWords |> Array.exists (containedIn bn) then 1 else 0
+        | Some bn -> if queryWords |> Array.exists (containedIn bn) then 1 else 0
         | None ->
           // does query contain any brand name?
-          let searchedBrand = brands |> Set.filter (containedIn words) |> Seq.tryHead
+          let searchedBrand = brands |> Set.filter (containedIn sample.Query) |> Seq.tryHead
           match searchedBrand with // is query brand name in product title?
-          | Some b -> if b |> containedIn title then 1 else -1
+          | Some b -> if b |> containedIn sample.Title then 1 else -1
           | None -> 0
-    [| float uniqueWords.Length
-       float words.Length
-       float title.Length
-       float desc.Length
+    [| float queryWords.Length
+       float sample.Query.Length
+       float sample.Title.Length
+       float sample.Description.Length
        float wordMatchCount
        float titleMatches.Length
-       float titleMatches.Length / float uniqueWords.Length
-       float descMatches.Length / float uniqueWords.Length
+       float titleMatches.Length / float queryWords.Length
+       float descMatches.Length / float queryWords.Length
        float descMatches.Length
        float attrMatches.Length
        float brandNameMatch |]
 
-let isStemmedMatch input word =
-    let word' = word |> sanitize |> stem |> Regex.Escape
-    Regex.IsMatch(input |> sanitize |> stemWords, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
-let stemmedWordMatch = features isStemmedMatch
-
-let stringContainsMatch = features containedIn
-
-printfn "Extracting training features..."
-let trainInput = 
-    train.Rows
+let getFeatures samples =
+    samples
     |> PSeq.ordered
-    |> PSeq.map (fun w ->
-        stemmedWordMatch
-          w.Search_term
-          w.Product_title
-          (productDescription w.Product_uid)
-          (attribs w.Product_uid)
-          (brandName w.Product_uid))
+    |> PSeq.map (fun s -> features s (brandName s.Id))
     |> PSeq.toArray
 
+printfn "Extracting training features..."
+let trainInput = getFeatures trainSamples
 let trainOutput = 
     train.Rows
     |> Seq.map (fun t -> float t.Relevance)
-
-let trainInputOutput =
+    |> Array.ofSeq
+let trainInputOutput = // NOTE: ALGLIB wants prediction variable at end of input array
   Seq.zip trainInput trainOutput
   |> Seq.map (fun (i,o) -> Array.append i [|o|])
   |> array2D
 
-printfn "Regressing..."
-let trees = 100
-let treeTrainSize = 0.2
-let info, f, r =
-  alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, trainInput.[0].Length, 1, trees, treeTrainSize)
-//0.48737 = kaggle rsme; oobrmserror = 0.4776784128; rmserror = 0.4303968628
-//? = kaggle rsme; oobrmserror = 0.4147019175; rmserror = 0.3529753185
+let featureCount = trainInput.[0].Length
 
-//let target = MultipleLinearRegression(11, true)
-//let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
-//let observationCount = trainInput |> Seq.length |> float
-//let sme = sumOfSquaredErrors / observationCount
-//let rsme = sqrt(sme)
+printfn "Random Decision Forest regression..."
+let trees = 75
+let treeTrainSize = 0.1
+let info, f, r =
+  alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, featureCount, 1, trees, treeTrainSize)
+printfn "RDF RMS Error: %f; Out-of-bag RMS Error: %f" r.rmserror r.oobrmserror
+//0.48737 = kaggle rsme; rmserror = 0.4303968628; oobrmserror = 0.4776784128
+//0.48740 = kaggle rsme; RDF RMS Error: 0.430214; Out-of-bag RMS Error: 0.477583
+
+printfn "Multiple linear regression..."
+let target = MultipleLinearRegression(featureCount, true)
+let sumOfSquaredErrors = target.Regress(trainInput, trainOutput)
+let observationCount = float trainInput.Length
+let sme = sumOfSquaredErrors / observationCount
+let rsme = sqrt(sme)
+printfn "Linear regression RSME: %f" rsme
+//0.48754 - string handling tweaks
 //0.48835 - sanitize text input
 //0.48917 - stem all words for comparison
 //0.48940 - added title & desc length feature
@@ -170,37 +163,33 @@ let info, f, r =
 //0.5063 - string contains
 
 printfn "Extracting testing features..."
-let testInput = 
-    test.Rows
-    |> PSeq.ordered
-    |> PSeq.map (fun w ->
-        stemmedWordMatch
-          w.Search_term
-          w.Product_title
-          (productDescription w.Product_uid)
-          (attribs w.Product_uid)
-          (brandName w.Product_uid))
-    |> PSeq.toArray
+let testSamples =
+    test.Rows |> Seq.map (fun r -> sample r.Id r.Product_uid r.Product_title r.Search_term)
+let testInput = getFeatures testSamples
 
-let inline bracket n = Math.Max(1., Math.Min(3., n))
+let writeResults name rows =
+    let outputPath = __SOURCE_DIRECTORY__ + sprintf "../../data/%s_submission_FSharp.csv" name
+    File.WriteAllLines(outputPath, "id,relevance" :: rows)  
 
-printfn "Predicting..."
+let inline bracket n = Math.Max(1., Math.Min(3., n)) // ensure output between 1..3
+
+printfn "Predicting with random forest..."
 let mutable result : float [] = [||]
-let submission =
-  test.Rows
-  |> Seq.mapi (fun i r ->
-      alglib.dfprocess(f, testInput.[i], &result) 
-      sprintf "%A,%A" r.Id (bracket result.[0]))
-  |> List.ofSeq
+let rfSubmission =
+    testSamples
+    |> Seq.mapi (fun i r ->
+        alglib.dfprocess(f, testInput.[i], &result) 
+        sprintf "%A,%A" r.Id (bracket result.[0]))
+    |> List.ofSeq
+    |> writeResults "rf"
 
-//let testOutput = target.Compute(testInput)
-//let testOutput' = testOutput |> Seq.map bracket
+printfn "Predicting with linear regression..."
+let testOutput = target.Compute(testInput)
+let testOutput' = testOutput |> Seq.map bracket
 
-printfn "Writing results..."
-//let submission = 
-//    Seq.zip test.Rows testOutput
-//    |> PSeq.ordered
-//    |> PSeq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
-//    |> PSeq.toList
-let outputPath = __SOURCE_DIRECTORY__ + @"../../data/rf_submission_FSharp.csv"
-File.WriteAllLines(outputPath, "id,relevance" :: submission)
+let linRegSubmission = 
+    Seq.zip test.Rows testOutput
+    |> PSeq.ordered
+    |> PSeq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
+    |> PSeq.toList
+    |> writeResults "linear"
