@@ -11,4 +11,5 @@ NUGET
     alglibnet2 (0.0.0)
     FSharp.Collections.ParallelSeq (1.0.2)
     FSharp.Data (2.2.5)
+    FuzzyString (1.0.0)
     StemmersNet (1.1.1)
