@@ -134,6 +134,17 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
       <ItemGroup>
+        <Reference Include="FuzzyString">
+          <HintPath>..\packages\FuzzyString\lib\FuzzyString.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
+      <ItemGroup>
         <Reference Include="StemmersNet">
           <HintPath>..\packages\StemmersNet\lib\net20\StemmersNet.dll</HintPath>
           <Private>True</Private>
@@ -144,13 +155,14 @@
   </Choose>
   <Import Project="..\packages\Accord\build\$(__paket__Accord_targets).targets" Condition="Exists('..\packages\Accord\build\$(__paket__Accord_targets).targets')" Label="Paket" />
   <ItemGroup>
+    <Compile Include="StringUtils.fs" />
     <Compile Include="Core.fs" />
     <None Include="SampleModel.fsx" />
     <None Include="Script.fsx" />
-    <Content Include="paket.references" />
     <None Include="sklearnRandomForest.fsx" />
     <None Include="benchmarkScore.fsx" />
     <None Include="exploreData.fsx" />
+    <Content Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
