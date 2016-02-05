@@ -1,11 +1,13 @@
-﻿#r "../packages/Accord/lib/net45/Accord.dll"
-#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
-#r "../packages/Accord.Math/lib/net45/Accord.Math.dll"
-#r "../packages/Accord.Statistics/lib/net45/Accord.Statistics.dll"
-#r "../packages/FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
-#r "../packages/StemmersNet/lib/net20/StemmersNet.dll"
-#r "../packages/alglibnet2/lib/alglibnet2.dll"
-#r "../packages/FuzzyString/lib/FuzzyString.dll"
+﻿#I @"../packages/"
+
+#r "Accord/lib/net45/Accord.dll"
+#r "FSharp.Data/lib/net40/FSharp.Data.dll"
+#r "Accord.Math/lib/net45/Accord.Math.dll"
+#r "Accord.Statistics/lib/net45/Accord.Statistics.dll"
+#r "FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
+#r "StemmersNet/lib/net20/StemmersNet.dll"
+#r "alglibnet2/lib/alglibnet2.dll"
+#r "FuzzyString/lib/FuzzyString.dll"
 #load "StringUtils.fs"
 
 open System
