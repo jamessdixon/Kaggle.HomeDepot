@@ -1,16 +1,16 @@
 ﻿namespace HomeDepot
 
+open CsvData
+
 module Core =
 
-    type UID = int
-    type Query = string
-    type Observation = Query * UID
-
     type Quality = float
-    type Example = Observation * Quality
+    type Example = Sample * Quality
 
-    type Predictor = Observation -> Quality
+    type Predictor = Sample -> Quality
     
+    type AttributeMap = Map<int, seq<int * string * string>>
+
     (*
     Crude validation
     *)
@@ -23,20 +23,7 @@ module Core =
             delta * delta)
         |> sqrt
 
-    open FSharp.Data
-
-    type Train = CsvProvider<"../data/train.csv">
-    type TrainingExample = Train.Row
-
-    type Products = CsvProvider<"../data/product_descriptions.csv">
-    type Product = Products.Row
-
-    type Attributes = CsvProvider<"../data/attributes.csv">
-    type Attribute = Attributes.Row
-
-    type Learn = (TrainingExample seq * Product seq * Attribute seq) -> Predictor
-
-    let toExample (t:TrainingExample) = (t.Search_term, t.Product_uid), (float t.Relevance)
+    type Learn = Example array -> AttributeMap -> Predictor
 
     // crude evaluation: learn on 3/4 of the sample,
     // compute the RMSE on the last 1/4.
@@ -44,17 +31,20 @@ module Core =
     // attributes covered by the training sample
     // TODO: k-fold
     let evaluate (learn:Learn) =
-        
-        let training = Train.GetSample ()
-        let products = Products.GetSample ()
-        let attributes = Attributes.GetSample ()
 
-        let size = training.Rows |> Seq.length
+        let trainSamples = getTrainSamples()
+        let trainOutput = getTrainOutput()
 
+        // partition training data
+        let scoredTrainSamples = Array.zip trainSamples trainOutput
+        let size = trainSamples.Length
         let sampleSize = size * 3 / 4
-        let trainingSample = training.Rows |> Seq.take sampleSize
-        let validationSample = training.Rows |> Seq.skip sampleSize |> Seq.map toExample
+        let trainingSamples = scoredTrainSamples |> Array.take sampleSize
+        let validationSamples = scoredTrainSamples |> Array.skip sampleSize
+        
+        // get a trained model for prediction
+        let attribMap = getAttributeMap()
+        let predictor = learn trainingSamples attribMap
 
-        let model = learn (trainingSample, products.Rows, attributes.Rows)
-
-        rmse model validationSample
+        // calculate RMSE for validation sample predictions
+        rmse predictor validationSamples
