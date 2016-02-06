@@ -34,7 +34,7 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
     let attrMatches = queryWords |> Array.filter (isMatch attributes)
     let wordMatchCount =
         queryWords
-        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.distinct |> Seq.contains w)
+        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
         |> Seq.length
     let brandNameMatch =
         match productBrand with // does query contain product brand?
@@ -49,12 +49,11 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
     [| float queryWords.Length
        float sample.Query.Length
        float sample.Title.Length
-       float sample.Description.Length
        float wordMatchCount
        float titleMatches.Length
        float titleMatches.Length / float queryWords.Length
-       float descMatches.Length / float queryWords.Length
        float descMatches.Length
+       float descMatches.Length / float queryWords.Length
        float attrMatches.Length
        float brandNameMatch |]
 
@@ -105,7 +104,7 @@ let rfLearn (examples:Example array) attribMap =
 
   printfn "Random Decision Forest regression..."
   let trees = 75
-  let treeTrainSize = 0.1
+  let treeTrainSize = 0.15
   let featureCount = trainInput.[0].Length
   let _info, forest, forestReport =
       alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, featureCount, 1, trees, treeTrainSize)
@@ -117,6 +116,12 @@ let rfLearn (examples:Example array) attribMap =
       alglib.dfprocess(forest, features, &result)
       result.[0]
   predict
+
+let rfQuality = evaluate rfLearn
+submission rfLearn
+//0.48737 = kaggle rsme; RDF RMS Error: 0.430396; Out-of-bag RMS Error: 0.477678
+//0.48740 = kaggle rsme; RDF RMS Error: 0.430214; Out-of-bag RMS Error: 0.477583
+//?.????? = kaggle rsme; RDF RMS Error: 0.430041; Out-of-bag RMS Error: 0.477391
 
 let linLearn (examples:Example array) attribMap =
   let samples, trainOutput = Array.unzip examples
@@ -139,11 +144,6 @@ let linLearn (examples:Example array) attribMap =
       let features = getFeatures' sample 
       target.Compute(features)
   predict
-
-let rfQuality = evaluate rfLearn
-//0.48737 = kaggle rsme; rmserror = 0.4303968628; oobrmserror = 0.4776784128
-//0.48740 = kaggle rsme; RDF RMS Error: 0.430214; Out-of-bag RMS Error: 0.477583
-//?.????? = kaggle rsme; RDF RMS Error: 0.430041; Out-of-bag RMS Error: 0.477391
 
 let linQuality = evaluate linLearn
 ////0.48754 - string handling tweaks
