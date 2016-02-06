@@ -3,6 +3,7 @@
 open CsvData
 
 module Core =
+    open System
 
     type Quality = float
     type Example = Sample * Quality
@@ -37,10 +38,13 @@ module Core =
 
         // partition training data
         let scoredTrainSamples = Array.zip trainSamples trainOutput
-        let size = trainSamples.Length
-        let sampleSize = size * 3 / 4
-        let trainingSamples = scoredTrainSamples |> Array.take sampleSize
-        let validationSamples = scoredTrainSamples |> Array.skip sampleSize
+        let rng = System.Random()
+        let trainingSamples, validationSamples = scoredTrainSamples |> Array.partition (fun _ -> rng.NextDouble() <= 0.75)
+//        let size = trainSamples.Length
+//        let sampleSize = size * 3 / 4
+//        let trainingSamples = scoredTrainSamples |> Array.take sampleSize
+//        let validationSamples = scoredTrainSamples |> Array.skip sampleSize
+        printfn "%d training samples, %d validation samples" trainingSamples.Length validationSamples.Length
         
         // get a trained model for prediction
         let attribMap = getAttributeMap()
@@ -48,3 +52,24 @@ module Core =
 
         // calculate RMSE for validation sample predictions
         rmse predictor validationSamples
+
+    let submission (learn:Learn) =
+        let trainSamples = getTrainSamples()
+        let trainOutput = getTrainOutput()
+
+        let trainingSamples = Array.zip trainSamples trainOutput
+
+        // get a trained model for prediction
+        let attribMap = getAttributeMap()
+        let predictor = learn trainingSamples attribMap
+        
+        let testSamples = getTestSamples()
+        let submission =
+            testSamples
+            |> Seq.map (fun s -> sprintf "%A,%f" s.Id (predictor s))
+            |> List.ofSeq
+
+        let writeResults name rows =
+            let outputPath = __SOURCE_DIRECTORY__ + sprintf "../../data/%s_submission_FSharp.csv" name
+            IO.File.WriteAllLines(outputPath, "id,relevance" :: rows)
+        writeResults (DateTime.UtcNow.ToString("yyyy-MM-dd_HHmm")) submission

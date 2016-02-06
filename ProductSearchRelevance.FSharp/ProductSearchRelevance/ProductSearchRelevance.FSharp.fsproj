@@ -157,9 +157,10 @@
   <ItemGroup>
     <Compile Include="StringUtils.fs" />
     <Compile Include="CsvData.fs" />
+    <Compile Include="TFIDF.fs" />
     <Compile Include="Core.fs" />
+    <None Include="TFIDF.fsx" />
     <None Include="SampleModel.fsx" />
-    <None Include="Script.fsx" />
     <None Include="sklearnRandomForest.fsx" />
     <None Include="extendedBenchmarkScore.fsx" />
     <None Include="benchmarkScore.fsx" />

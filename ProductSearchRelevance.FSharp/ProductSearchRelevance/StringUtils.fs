@@ -10,6 +10,7 @@ open System.Text.RegularExpressions
 let inline splitOnSpaces (str : string) = str.Split([| ' ' |], StringSplitOptions.RemoveEmptyEntries)
 let inline containedIn (input : string) word = input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
 let inline wordSimilarity a b = ComparisonMetrics.OverlapCoefficient(a, b)
+let inline join (strings : string []) = String.Join(" ", strings)
 
 /// True if any word in input is similar to word.
 let isFuzzyMatch input word = 
@@ -34,18 +35,28 @@ let stemWords =
   >> Array.map stem
   >> String.concat " "
 
-//let stopWords = [| "and"; "for"; "the"; "w/"; "with" |]
-//let removeStopWords (str : string) : string = 
-//  let cleaned = stopWords |> Array.fold (fun s w -> Regex.Replace(s, sprintf @"\b%s\b" w, "", RegexOptions.IgnoreCase)) str
-//  cleaned.ToString()
-let sanitize (str : string) = 
-  let clean = StringBuilder(str.Length)
-  for char in str do
-    match char with
-    | c when Char.IsLetterOrDigit c || Char.IsWhiteSpace c -> clean.Append char |> ignore
-    | '-' | '/' -> clean.Append " " |> ignore
-    | _ -> ()
-  clean.ToString().Trim()
+let stopWords = 
+  [| "and"; "the"; "to"; "for"; "a"; "with"; "of"; "is"; "or"; "your"; "this"; "from"; "on"; "that"; "easy"; "are"; "be"; "it"; "an"; 
+     "you"; "use"; "can"; "by"; "up"; "design"; "features"; "as"; "any"; "has"; "provides"; "not"; "will"; "installation"; "residents"; 
+     "designed"; "see"; "proposition"; "nbsp"; "at"; "used"; "provide"; "more"; "may"; "when"; "offers"; "construction"; "product"; 
+     "allows"; "other"; "made"; "no"; "includes"; "most"; "perfect"; "durable"; "depot"; "also"; "easily"; "our"; "its"; 
+     "included"; "warranty"; "than"; "help"; "look"; "per"; "plan"; "into"; "one"; "while"; "these"; "limited" |]
+let stopRegex = Regex(sprintf @"\b(?:%s)\b" <| String.concat "|" stopWords, RegexOptions.Compiled)
+let inline removeStopWords (str : string) = stopRegex.Replace(str, String.Empty)
+
+let sanitize (str : string) =
+  if String.IsNullOrWhiteSpace str then String.Empty
+  else
+    let clean = StringBuilder(str.Length)
+    for char in str do
+      match char with
+      | c when Char.IsLetterOrDigit c || Char.IsWhiteSpace c -> clean.Append char |> ignore
+      | '-' | '/' -> clean.Append " " |> ignore
+      | _ -> ()
+    clean.ToString().Trim()
+//    match removeStopWords clean with
+//    | e when String.IsNullOrWhiteSpace e -> str
+//    | s -> s
 
 let inline toLower (str : string) = str.ToLowerInvariant()
 
