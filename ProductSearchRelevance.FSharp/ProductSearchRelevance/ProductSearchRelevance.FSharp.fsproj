@@ -58,6 +58,24 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Content Include="paket.references" />
+    <Compile Include="StringUtils.fs" />
+    <None Include="extendedBenchmarkScore.fsx" />
+    <None Include="sklearnRandomForest.fsx" />
+    <None Include="exploreData.fsx" />
+    <None Include="benchmarkScore.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
       <PropertyGroup>
@@ -154,25 +172,7 @@
     </When>
   </Choose>
   <Import Project="..\packages\Accord\build\$(__paket__Accord_targets).targets" Condition="Exists('..\packages\Accord\build\$(__paket__Accord_targets).targets')" Label="Paket" />
-  <ItemGroup>
-    <Compile Include="StringUtils.fs" />
     <Compile Include="CsvData.fs" />
     <Compile Include="Core.fs" />
     <None Include="SampleModel.fsx" />
-    <None Include="Script.fsx" />
-    <None Include="sklearnRandomForest.fsx" />
-    <None Include="benchmarkScore.fsx" />
-    <None Include="exploreData.fsx" />
-    <Content Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Xml.Linq" />
-  </ItemGroup>
 </Project>
