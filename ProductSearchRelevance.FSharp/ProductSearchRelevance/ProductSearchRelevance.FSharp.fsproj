@@ -58,6 +58,12 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Content Include="paket.references" />
+    <Compile Include="StringUtils.fs" />
+    <Compile Include="CsvData.fs" />
+    <Compile Include="Core.fs" />
+    <None Include="SampleModel.fsx" />
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
       <PropertyGroup>
@@ -156,9 +162,6 @@
   <Import Project="..\packages\Accord\build\$(__paket__Accord_targets).targets" Condition="Exists('..\packages\Accord\build\$(__paket__Accord_targets).targets')" Label="Paket" />
   <ItemGroup>
     <Compile Include="StringUtils.fs" />
-    <Compile Include="CsvData.fs" />
-    <Compile Include="Core.fs" />
-    <None Include="SampleModel.fsx" />
     <None Include="Script.fsx" />
     <None Include="sklearnRandomForest.fsx" />
     <None Include="extendedBenchmarkScore.fsx" />

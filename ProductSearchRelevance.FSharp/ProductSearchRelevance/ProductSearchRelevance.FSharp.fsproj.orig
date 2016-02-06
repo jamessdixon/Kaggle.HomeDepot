@@ -58,13 +58,18 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+<<<<<<< HEAD
+=======
   <ItemGroup>
     <Content Include="paket.references" />
     <Compile Include="StringUtils.fs" />
+    <Compile Include="CsvData.fs" />
+    <Compile Include="Core.fs" />
     <None Include="extendedBenchmarkScore.fsx" />
     <None Include="sklearnRandomForest.fsx" />
     <None Include="exploreData.fsx" />
     <None Include="benchmarkScore.fsx" />
+    <None Include="SampleModel.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -76,6 +81,7 @@
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
+>>>>>>> ca17e08a8e7c09171d0ad7305e81d6f733e6693d
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
       <PropertyGroup>
@@ -172,7 +178,29 @@
     </When>
   </Choose>
   <Import Project="..\packages\Accord\build\$(__paket__Accord_targets).targets" Condition="Exists('..\packages\Accord\build\$(__paket__Accord_targets).targets')" Label="Paket" />
+<<<<<<< HEAD
+  <ItemGroup>
+    <Compile Include="StringUtils.fs" />
     <Compile Include="CsvData.fs" />
     <Compile Include="Core.fs" />
     <None Include="SampleModel.fsx" />
+    <None Include="Script.fsx" />
+    <None Include="sklearnRandomForest.fsx" />
+    <None Include="extendedBenchmarkScore.fsx" />
+    <None Include="benchmarkScore.fsx" />
+    <None Include="exploreData.fsx" />
+    <Content Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+=======
+>>>>>>> ca17e08a8e7c09171d0ad7305e81d6f733e6693d
 </Project>
