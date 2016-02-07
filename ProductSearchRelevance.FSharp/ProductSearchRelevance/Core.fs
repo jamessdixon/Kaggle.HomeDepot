@@ -38,7 +38,7 @@ module Core =
 
         // partition training data
         let scoredTrainSamples = Array.zip trainSamples trainOutput
-        let rng = System.Random()
+        let rng = System.Random(4231982)
         let trainingSamples, validationSamples = scoredTrainSamples |> Array.partition (fun _ -> rng.NextDouble() <= 0.75)
 //        let size = trainSamples.Length
 //        let sampleSize = size * 3 / 4
