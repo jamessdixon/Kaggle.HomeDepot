@@ -5,7 +5,6 @@ open FSharp.Collections.ParallelSeq
 open StringUtils
 open System
 open System.Collections.Concurrent
-open System.Threading
 
 let nGrams n words = 
   words

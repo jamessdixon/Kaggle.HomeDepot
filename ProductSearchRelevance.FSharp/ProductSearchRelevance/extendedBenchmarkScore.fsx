@@ -11,57 +11,78 @@
 #load "CsvData.fs"
 #load "StringUtils.fs"
 #load "Core.fs"
+#load "TFIDF.fs"
 
 open System
 open FSharp.Collections.ParallelSeq
 open StringUtils
 open Accord.Statistics.Models.Regression.Linear
 open HomeDepot.Core
+open TFIDF
+open Accord.Statistics.Analysis
 
 printfn "Building Brand Name set..."
 let brands =
     CsvData.attributes.Rows
     |> Seq.where (fun r -> r.Name = "MFG Brand Name")
-    |> Seq.map (fun r -> r.Value.ToLowerInvariant().Replace(" & ", " and ") |> sanitize)
+    |> Seq.map (fun r -> r.Value |> prepareText)
     |> Set.ofSeq
 
-let isMatch = startsWithMatch
+let binary = function true -> 1. | _ -> 0.
+let intersect a b = Set.intersect (Set.ofSeq a) (Set.ofSeq b)
+let fuzzyIntersect a b =
+  a |> Seq.filter (fun a -> b |> Seq.exists (fun b -> isFuzzyMatch a b))
+let overlap' a b = intersect a b |> Set.count
+let overlap a b =
+  match overlap' a b with
+  | 0 -> fuzzyIntersect a b  |> Seq.length
+  | o -> o
+
 let features attrSelector productBrand (sample:CsvData.Sample) =
-    let queryWords = sample.Query |> splitOnSpaces |> Array.distinct
-    let titleMatches = queryWords |> Array.filter (isMatch sample.Title)
-    let descMatches = queryWords |> Array.filter (isMatch sample.Description)
-    let attributes = prepareText <| attrSelector sample.ProductId
-    let attrMatches = queryWords |> Array.filter (isMatch attributes)
-    let wordMatchCount =
-        queryWords
-        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
-        |> Seq.length
-    let brandNameMatch =
+    let queryWords = sample.Query |> prepareText
+    let titleWords = sample.Title |> prepareText
+    let descWords = sample.Description |> prepareText
+    let titleMatches = queryWords |> overlap titleWords
+    let descMatches = queryWords |> overlap descWords
+//    let queryInTitle = sample.Query |> containedIn sample.Title
+//    let queryInDescription = sample.Query |> containedIn sample.Description
+//    let queryBigrams = nGrams 2 queryWords |> Array.ofSeq
+//    let titleBiMatches = nGrams 2 titleWords |> overlap' queryBigrams
+//    let descBiMatches = nGrams 2 descWords |> overlap' queryBigrams
+//    let attributes = prepareText <| attrSelector sample.ProductId
+//    let attrMatches = queryWords |> Array.filter (isMatch attributes)
+//    let wordMatchCount =
+//        queryWords
+//        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
+//        |> Seq.length
+    let brandNameMatches =
         match productBrand with // does query contain product brand?
-        | Some bn -> if queryWords |> Array.exists (containedIn bn) then 1 else 0
+        | Some bn ->
+          let brandWords = bn |> splitOnSpaces
+          queryWords |> overlap brandWords
         | None ->
           // does query contain any brand name?
-          let searchedBrand = brands |> Set.filter (containedIn sample.Query) |> Seq.tryHead
+          let searchedBrand = brands |> Set.filter (fun b -> overlap' queryWords b > 0) |> Seq.tryHead
           match searchedBrand with // is query brand name in product title?
-          | Some b -> if b |> containedIn sample.Title then 1 else -1
+          | Some b -> overlap' b titleWords
           | None -> 0
     // feature array
-    [| float queryWords.Length
-       float sample.Query.Length
+    [| float sample.Query.Length
        float sample.Title.Length
-       float wordMatchCount
-       float titleMatches.Length
-       float titleMatches.Length / float queryWords.Length
-       float descMatches.Length
-       float descMatches.Length / float queryWords.Length
-       float attrMatches.Length
-       float brandNameMatch |]
-
-let prepSample (sample:CsvData.Sample) =
-    { sample with
-        Title = prepareText sample.Title
-        Description = prepareText sample.Description
-        Query = prepareText sample.Query }
+       float sample.Description.Length
+//       float queryWords.Length
+//       float titleWords.Length
+//       float descWords.Length
+       float titleMatches
+       float titleMatches / float queryWords.Length
+//       float titleBiMatches
+//       float descBiMatches
+       float descMatches
+       float descMatches / float queryWords.Length
+//       binary queryInTitle
+//       binary queryInDescription
+       float brandNameMatches
+       float brandNameMatches / float queryWords.Length |]
 
 let getAttr attribMap productId =
     match attribMap |> Map.tryFind productId with
@@ -82,7 +103,7 @@ let brandName attribMap uid =
     | None -> None
 
 let getFeatures attribs attribMap sample =
-    sample |> prepSample |> features attribs (brandName attribMap sample.ProductId)
+    sample |> features attribs (brandName attribMap sample.ProductId)
 
 let extractFeatures featureExtractor = 
     PSeq.ordered
@@ -103,22 +124,23 @@ let rfLearn (examples:Example array) attribMap =
       |> array2D
 
   printfn "Random Decision Forest regression..."
-  let trees = 75
-  let treeTrainSize = 0.15
+  let trees = 300
+  let treeTrainSize = 0.1
   let featureCount = trainInput.[0].Length
   let _info, forest, forestReport =
       alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, featureCount, 1, trees, treeTrainSize)
   printfn "RDF RMS Error: %f; Out-of-bag RMS Error: %f" forestReport.rmserror forestReport.oobrmserror
 
-  let predict (sample:CsvData.Sample) : Quality =
-      let features = getFeatures' sample
-      let mutable result : float [] = [||]
-      alglib.dfprocess(forest, features, &result)
-      result.[0]
+  let predict samples =
+    let trainInput = samples |> extractFeatures getFeatures'
+    let mutable result : float [] = [||]
+    trainInput
+    |> Array.map (fun features -> 
+        alglib.dfprocess(forest, features, &result)
+        result.[0])
   predict
 
 let rfQuality = evaluate rfLearn
-submission rfLearn
 //0.48737 = kaggle rsme; RDF RMS Error: 0.430396; Out-of-bag RMS Error: 0.477678
 //0.48740 = kaggle rsme; RDF RMS Error: 0.430214; Out-of-bag RMS Error: 0.477583
 //?.????? = kaggle rsme; RDF RMS Error: 0.430041; Out-of-bag RMS Error: 0.477391
@@ -140,8 +162,8 @@ let linLearn (examples:Example array) attribMap =
   let rsme = sqrt(sme)
   printfn "Linear regression RSME: %f" rsme
 
-  let predict (sample:CsvData.Sample) : Quality =
-      let features = getFeatures' sample 
+  let predict samples =
+      let features = extractFeatures getFeatures' samples
       target.Compute(features)
   predict
 
@@ -159,15 +181,26 @@ let linQuality = evaluate linLearn
 ////0.50783 - kaggle reported from stemmed
 ////0.5063 - string contains
 
-//let writeResults name rows =
-//    let outputPath = __SOURCE_DIRECTORY__ + sprintf "../../data/%s_submission_FSharp.csv" name
-//    File.WriteAllLines(outputPath, "id,relevance" :: rows)  
-//
-//let inline bracket n = Math.Max(1., Math.Min(3., n)) // ensure output between 1..3
-//
-//let linRegSubmission = 
-//    Seq.zip test.Rows testOutput
-//    |> PSeq.ordered
-//    |> PSeq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
-//    |> PSeq.toList
-//    |> writeResults "linear"
+let logLearn (examples:Example array) attribMap =
+  let samples, trainOutput = Array.unzip examples
+
+  printfn "Extracting training features..."
+  let attribs = getAttr attribMap
+  let getFeatures' = getFeatures attribs attribMap
+  let trainInput : float [] [] = extractFeatures getFeatures' samples
+
+  let normalize (min,max) (min',max') i =
+    (max' - min') / (max - min) * (i - max) + max'
+  let normalizeInput = normalize (1.0, 3.0) (0.0, 1.0)
+  let normalizeOutput = normalize (0.0, 1.0) (1.0, 3.0)
+
+  printfn "Logistic regression..."
+  let target = LogisticRegressionAnalysis(trainInput, trainOutput |> Array.map normalizeInput)
+  target.Compute() |> ignore
+
+  let predict samples =
+      let features = extractFeatures getFeatures' samples
+      target.Regression.Compute(features) |> Array.map normalizeOutput
+  predict
+
+let logQuality = evaluate logLearn

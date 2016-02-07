@@ -8,14 +8,17 @@ open System.Text
 open System.Text.RegularExpressions
 
 let inline splitOnSpaces (str : string) = str.Split([| ' ' |], StringSplitOptions.RemoveEmptyEntries)
-let inline containedIn (input : string) word = input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
-let inline wordSimilarity a b = ComparisonMetrics.OverlapCoefficient(a, b)
+let inline containedIn (input : string)(word : string) = input.IndexOf(word) >= 0
+let inline wordSimilarity a b = ComparisonMetrics.JaroWinklerDistance(a, b)
 let inline join (strings : string []) = String.Join(" ", strings)
+let inline replace (regex:Regex) (repl:string) (str:string) = regex.Replace(str, repl)
+let inline trim (str:string) = str.Trim()
 
-/// True if any word in input is similar to word.
+/// True if input is similar to word.
 let isFuzzyMatch input word = 
-  let inputWords = splitOnSpaces input
-  inputWords |> Array.exists (fun i -> wordSimilarity i word >= 0.7)
+  let m = wordSimilarity input word >= 0.9
+  if m then printfn "Fuzzy match '%s' -> '%s'" word input
+  m
 
 /// True if any word in input starts with word.
 let startsWithMatch input word = 
@@ -35,6 +38,13 @@ let stemWords =
   >> Array.map stem
   >> String.concat " "
 
+let inchRegex = Regex(@"in(?:ches|ch)?\.?", RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
+let footRegex = Regex(@"(?:foot|feet)\.?", RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
+let poundRegex = Regex(@"(?:pound|lb)s?\.?", RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
+let standardizeMeasures str =
+  str |> replace inchRegex "in."
+      |> replace footRegex "ft."
+      |> replace poundRegex "lb."
 let stopWords = 
   [| "and"; "the"; "to"; "for"; "a"; "with"; "of"; "is"; "or"; "your"; "this"; "from"; "on"; "that"; "easy"; "are"; "be"; "it"; "an"; 
      "you"; "use"; "can"; "by"; "up"; "design"; "features"; "as"; "any"; "has"; "provides"; "not"; "will"; "installation"; "residents"; 
@@ -51,16 +61,19 @@ let sanitize (str : string) =
     for char in str do
       match char with
       | c when Char.IsLetterOrDigit c || Char.IsWhiteSpace c -> clean.Append char |> ignore
-      | '-' | '/' -> clean.Append " " |> ignore
+      | '.' | '-' | '/' -> clean.Append char |> ignore
       | _ -> ()
-    clean.ToString().Trim()
-//    match removeStopWords clean with
-//    | e when String.IsNullOrWhiteSpace e -> str
-//    | s -> s
+    let clean = clean.ToString() |> standardizeMeasures |> trim
+    match removeStopWords clean with
+    | e when String.IsNullOrWhiteSpace e -> str
+    | s -> s
 
 let inline toLower (str : string) = str.ToLowerInvariant()
 
-let prepareText = 
-  toLower
-  >> sanitize
-  >> stemWords
+let prepareText str = 
+  str
+  |> toLower
+  |> splitOnSpaces
+  |> Array.map sanitize
+  |> Array.collect splitOnSpaces
+  |> Array.map stem

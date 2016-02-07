@@ -8,7 +8,7 @@ module Core =
     type Quality = float
     type Example = Sample * Quality
 
-    type Predictor = Sample -> Quality
+    type Predictor = Sample array -> Quality array
     
     type AttributeMap = Map<int, seq<int * string * string>>
 
@@ -17,10 +17,10 @@ module Core =
     *)
 
     // https://www.kaggle.com/wiki/RootMeanSquaredError
-    let rmse (predictor:Predictor) (examples:Example seq) =
-        examples
-        |> Seq.averageBy (fun (obs,qual) ->
-            let delta = predictor obs - qual
+    let rmse (actual:Quality seq) (expected:Quality seq) =
+        Seq.zip actual expected
+        |> Seq.averageBy (fun (act,exp) ->
+            let delta = act - exp
             delta * delta)
         |> sqrt
 
@@ -51,22 +51,25 @@ module Core =
         let predictor = learn trainingSamples attribMap
 
         // calculate RMSE for validation sample predictions
-        rmse predictor validationSamples
+        let predictions = predictor (validationSamples |> Array.map fst)
+        rmse predictions (validationSamples |> Seq.map snd)
 
     let submission (learn:Learn) =
+        // get a trained model for prediction
         let trainSamples = getTrainSamples()
         let trainOutput = getTrainOutput()
-
         let trainingSamples = Array.zip trainSamples trainOutput
-
-        // get a trained model for prediction
         let attribMap = getAttributeMap()
         let predictor = learn trainingSamples attribMap
         
+        // make predicitions on test samples
         let testSamples = getTestSamples()
+        let predictions = predictor testSamples
+
+        // format output
         let submission =
-            testSamples
-            |> Seq.map (fun s -> sprintf "%A,%f" s.Id (predictor s))
+            Seq.zip testSamples predictions
+            |> Seq.map (fun (s,p) -> sprintf "%d,%f" s.Id p)
             |> List.ofSeq
 
         let writeResults name rows =
