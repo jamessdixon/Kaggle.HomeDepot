@@ -66,6 +66,7 @@
     <None Include="TFIDF.fsx" />
     <None Include="SampleModel.fsx" />
     <None Include="sklearnRandomForest.fsx" />
+    <None Include="highScore.fsx" />
     <None Include="extendedBenchmarkScore.fsx" />
     <None Include="benchmarkScore.fsx" />
     <None Include="exploreData.fsx" />
