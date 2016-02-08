@@ -69,7 +69,7 @@ module Core =
         // format output
         let submission =
             Seq.zip testSamples predictions
-            |> Seq.map (fun (s,p) -> sprintf "%d,%f" s.Id p)
+            |> Seq.map (fun (s,p) -> sprintf "%d,%A" s.Id p)
             |> List.ofSeq
 
         let writeResults name rows =
