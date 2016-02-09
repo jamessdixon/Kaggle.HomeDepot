@@ -1,7 +1,7 @@
 ﻿
 #I @"../packages/"
-#r "FSharp.Data/lib/net40/FSharp.Data.dll"
 #r "Accord/lib/net40/Accord.dll"
+#r "FSharp.Data/lib/net40/FSharp.Data.dll"
 #r "Accord.Math/lib/net40/Accord.Math.dll"
 #r "Accord.Statistics/lib/net40/Accord.Statistics.dll"
 #r "Accord.MachineLearning/lib/net40/Accord.MachineLearning.dll"
