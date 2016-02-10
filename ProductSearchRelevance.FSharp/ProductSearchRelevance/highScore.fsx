@@ -14,25 +14,10 @@
 #load "TFIDF.fs"
 
 open System
-open System.IO
 open System.Text.RegularExpressions
-open FSharp.Data
-open Accord.Statistics.Models.Regression.Linear
-open Iveonik.Stemmers
 open FSharp.Collections.ParallelSeq
-open System.Collections.Concurrent
 open HomeDepot.Core
-
-let sanitize (str:string) =
-  let clean = System.Text.StringBuilder(str.Length)
-  for char in str do
-    match char with
-    | c when Char.IsLetterOrDigit c || Char.IsWhiteSpace c ->
-      clean.Append char |> ignore
-    | '-' | '/' ->
-      clean.Append " " |> ignore
-    | _ -> ()
-  clean.ToString().TrimEnd()
+open StringUtils
 
 printfn "Building Brand Name set..."
 let brands =
@@ -47,14 +32,6 @@ let brandName attribMap uid =
       let brand = a |> Seq.tryFind (fun (_, name, _) -> name = "MFG Brand Name")
       brand |> Option.map (fun (_, _, value) -> value)
     | None -> None
-
-let stemDict = ConcurrentDictionary<string,string>(StringComparer.OrdinalIgnoreCase)
-let stem word = stemDict.GetOrAdd(word, (fun s -> (new EnglishStemmer()).Stem s))
-let splitOnSpaces (str:string) = str.Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
-let stemWords = splitOnSpaces >> Array.map stem >> String.concat " "
-
-let containedIn (input:string) word =
-    input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
 
 let isMatch input word =
     let word' = word |> sanitize |> stem |> Regex.Escape
