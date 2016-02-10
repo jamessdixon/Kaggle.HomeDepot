@@ -18,6 +18,7 @@ open System.Text.RegularExpressions
 open FSharp.Collections.ParallelSeq
 open HomeDepot.Core
 open StringUtils
+open System.Text
 
 printfn "Building Brand Name set..."
 let brands =
@@ -37,14 +38,25 @@ let isMatch input word =
     let word' = word |> sanitize |> stem |> Regex.Escape
     Regex.IsMatch(input |> sanitize |> stemWords, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
 
+let fixLineConcats (attribs:string seq) (desc:string) =
+    attribs
+    |> Seq.where (fun a -> not <| String.IsNullOrWhiteSpace a)
+    |> Seq.fold
+        (fun (state:StringBuilder) t -> state.Replace(t, ""))
+        (StringBuilder(desc))
+    |> string
+
 let features attrSelector productBrand (sample:CsvData.Sample) =
     let words = sample.Query
     let title = sample.Title
-    let desc = sample.Description
+    let attributes = attrSelector sample.ProductId
+    let desc = sample.Description |> fixLineConcats attributes
+    let deduped = attributes |> Seq.where (fun a -> a |> containedIn desc |> not) |> String.concat " "
+//    printfn "%d pre %d post" (Seq.length attributes) (Seq.length deduped)
     let uniqueWords = words |> splitOnSpaces |> Array.distinct
-    let titleMatches = uniqueWords |> Array.filter (isMatch title)
-    let descMatches = uniqueWords |> Array.filter (isMatch desc)
-    let attrMatches = uniqueWords |> Array.filter (isMatch (attrSelector sample.ProductId))
+    let titleMatches = uniqueWords |> Array.filter (isMatch title) |> Array.distinct
+    let descMatches = uniqueWords |> Array.filter (isMatch desc) |> Array.distinct
+    let attrMatches = uniqueWords |> Array.filter (isMatch deduped) |> Array.distinct
     let wordMatchCount =
         uniqueWords
         |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
@@ -65,9 +77,10 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
        float wordMatchCount
        float titleMatches.Length
        float titleMatches.Length / float uniqueWords.Length
-       float descMatches.Length / float uniqueWords.Length
        float descMatches.Length
+       float descMatches.Length / float uniqueWords.Length
        float attrMatches.Length
+//       float attrMatches.Length / float uniqueWords.Length
        float brandNameMatch |]
 
 let getAttr attribMap productId =
@@ -78,8 +91,8 @@ let getAttr attribMap productId =
           | "yes" -> name // if true attrib, include attrib name
           | "no"  -> String.Empty
           | _     -> value
-      a |> Seq.map (fun (_, name, value) -> getAttrStr name value) |> String.concat " "
-    | None -> String.Empty
+      a |> Seq.map (fun (_, name, value) -> getAttrStr name value) |> Array.ofSeq
+    | None -> [||]
 
 let getFeatures attribs attribMap sample =
     sample |> features attribs (brandName attribMap sample.ProductId)
