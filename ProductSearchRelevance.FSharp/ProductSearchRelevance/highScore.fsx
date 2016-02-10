@@ -42,21 +42,24 @@ let fixLineConcats (attribs:string seq) (desc:string) =
     attribs
     |> Seq.where (fun a -> not <| String.IsNullOrWhiteSpace a)
     |> Seq.fold
-        (fun (state:StringBuilder) t -> state.Replace(t, ""))
+        (fun (state:StringBuilder) t -> state.Replace(t, t + " "))
         (StringBuilder(desc))
     |> string
 
 let features attrSelector productBrand (sample:CsvData.Sample) =
     let words = sample.Query
+    let uniqueWords = words |> splitOnSpaces |> Array.distinct
     let title = sample.Title
+    let titleWords = title |> splitOnSpaces
+    let indices = uniqueWords |> Seq.map (fun w -> titleWords |> Seq.tryFindIndexBack (isMatch w)) |> Seq.choose id
+    let queryTitleIndices = indices |> Seq.map (fun i -> float i / float titleWords.Length) |> Array.ofSeq
+    let queryTitlePosScore = if Array.isEmpty queryTitleIndices then 0. else Seq.average queryTitleIndices
     let attributes = attrSelector sample.ProductId
     let desc = sample.Description |> fixLineConcats attributes
     let deduped = attributes |> Seq.where (fun a -> a |> containedIn desc |> not) |> String.concat " "
-//    printfn "%d pre %d post" (Seq.length attributes) (Seq.length deduped)
-    let uniqueWords = words |> splitOnSpaces |> Array.distinct
-    let titleMatches = uniqueWords |> Array.filter (isMatch title) |> Array.distinct
-    let descMatches = uniqueWords |> Array.filter (isMatch desc) |> Array.distinct
-    let attrMatches = uniqueWords |> Array.filter (isMatch deduped) |> Array.distinct
+    let titleMatches = uniqueWords |> Array.filter (isMatch title)
+    let descMatches = uniqueWords |> Array.filter (isMatch desc)
+    let attrMatches = uniqueWords |> Array.filter (isMatch deduped)
     let wordMatchCount =
         uniqueWords
         |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
@@ -80,6 +83,7 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
        float descMatches.Length
        float descMatches.Length / float uniqueWords.Length
        float attrMatches.Length
+       queryTitlePosScore
 //       float attrMatches.Length / float uniqueWords.Length
        float brandNameMatch |]
 
@@ -90,7 +94,7 @@ let getAttr attribMap productId =
           match value.ToLowerInvariant() with
           | "yes" -> name // if true attrib, include attrib name
           | "no"  -> String.Empty
-          | _     -> value
+          | _     -> name + " " + value
       a |> Seq.map (fun (_, name, value) -> getAttrStr name value) |> Array.ofSeq
     | None -> [||]
 
@@ -132,7 +136,7 @@ let rfLearn (examples:Example array) attribMap =
         result.[0])
   predict
 
-let rfQuality = evaluate rfLearn
+//let rfQuality = evaluate rfLearn
 submission rfLearn
 //0.48737 = kaggle rsme; oobrmserror = 0.4776784128; rmserror = 0.4303968628
 //? = kaggle rsme; oobrmserror = 0.4147019175; rmserror = 0.3529753185
