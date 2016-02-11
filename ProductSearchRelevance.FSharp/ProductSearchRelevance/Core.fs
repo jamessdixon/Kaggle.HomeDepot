@@ -1,42 +1,30 @@
 ﻿namespace HomeDepot
 
-module Core =
+open CsvData
 
-    type UID = int
-    type Query = string
-    type Observation = Query * UID
+module Core =
+    open System
 
     type Quality = float
-    type Example = Observation * Quality
+    type Example = Sample * Quality
 
-    type Predictor = Observation -> Quality
+    type Predictor = Sample array -> Quality array
     
+    type AttributeMap = Map<int, seq<int * string * string>>
+
     (*
     Crude validation
     *)
 
     // https://www.kaggle.com/wiki/RootMeanSquaredError
-    let rmse (predictor:Predictor) (examples:Example seq) =
-        examples
-        |> Seq.averageBy (fun (obs,qual) ->
-            let delta = predictor obs - qual
+    let rmse (actual:Quality seq) (expected:Quality seq) =
+        Seq.zip actual expected
+        |> Seq.averageBy (fun (act,exp) ->
+            let delta = act - exp
             delta * delta)
         |> sqrt
 
-    open FSharp.Data
-
-    type Train = CsvProvider<"../data/train.csv">
-    type TrainingExample = Train.Row
-
-    type Products = CsvProvider<"../data/product_descriptions.csv">
-    type Product = Products.Row
-
-    type Attributes = CsvProvider<"../data/attributes.csv">
-    type Attribute = Attributes.Row
-
-    type Learn = (TrainingExample seq * Product seq * Attribute seq) -> Predictor
-
-    let toExample (t:TrainingExample) = (t.Search_term, t.Product_uid), (float t.Relevance)
+    type Learn = Example array -> AttributeMap -> Predictor
 
     // crude evaluation: learn on 3/4 of the sample,
     // compute the RMSE on the last 1/4.
@@ -44,17 +32,47 @@ module Core =
     // attributes covered by the training sample
     // TODO: k-fold
     let evaluate (learn:Learn) =
+
+        let trainSamples = getTrainSamples()
+        let trainOutput = getTrainOutput()
+
+        // partition training data
+        let scoredTrainSamples = Array.zip trainSamples trainOutput
+        let rng = System.Random(4231982)
+        let trainingSamples, validationSamples = scoredTrainSamples |> Array.partition (fun _ -> rng.NextDouble() <= 0.75)
+//        let size = trainSamples.Length
+//        let sampleSize = size * 3 / 4
+//        let trainingSamples = scoredTrainSamples |> Array.take sampleSize
+//        let validationSamples = scoredTrainSamples |> Array.skip sampleSize
+        printfn "%d training samples, %d validation samples" trainingSamples.Length validationSamples.Length
         
-        let training = Train.GetSample ()
-        let products = Products.GetSample ()
-        let attributes = Attributes.GetSample ()
+        // get a trained model for prediction
+        let attribMap = getAttributeMap()
+        let predictor = learn trainingSamples attribMap
 
-        let size = training.Rows |> Seq.length
+        // calculate RMSE for validation sample predictions
+        let predictions = predictor (validationSamples |> Array.map fst)
+        rmse predictions (validationSamples |> Seq.map snd)
 
-        let sampleSize = size * 3 / 4
-        let trainingSample = training.Rows |> Seq.take sampleSize
-        let validationSample = training.Rows |> Seq.skip sampleSize |> Seq.map toExample
+    let submission (learn:Learn) =
+        // get a trained model for prediction
+        let trainSamples = getTrainSamples()
+        let trainOutput = getTrainOutput()
+        let trainingSamples = Array.zip trainSamples trainOutput
+        let attribMap = getAttributeMap()
+        let predictor = learn trainingSamples attribMap
+        
+        // make predicitions on test samples
+        let testSamples = getTestSamples()
+        let predictions = predictor testSamples
 
-        let model = learn (trainingSample, products.Rows, attributes.Rows)
+        // format output
+        let submission =
+            Seq.zip testSamples predictions
+            |> Seq.map (fun (s,p) -> sprintf "%d,%A" s.Id p)
+            |> List.ofSeq
 
-        rmse model validationSample
+        let writeResults name rows =
+            let outputPath = __SOURCE_DIRECTORY__ + sprintf "../../data/%s_submission_FSharp.csv" name
+            IO.File.WriteAllLines(outputPath, "id,relevance" :: rows)
+        writeResults (DateTime.UtcNow.ToString("yyyy-MM-dd_HHmm")) submission
