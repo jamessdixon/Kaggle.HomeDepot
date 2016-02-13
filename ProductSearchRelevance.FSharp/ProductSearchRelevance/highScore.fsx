@@ -95,6 +95,7 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
        float words.Length
        float title.Length
        float desc.Length
+       float deduped.Length
        float wordMatchCount
        float titleMatches.Length
        float titleMatches.Length / float uniqueWords.Length
@@ -134,8 +135,8 @@ let rfLearn (examples:Example array) attribMap =
       |> array2D
 
   printfn "Random Decision Forest regression..."
-  let trees = 400
-  let treeTrainSize = 0.05
+  let trees = 600
+  let treeTrainSize = 0.1
   let featureCount = trainInput.[0].Length
   let _info, forest, forestReport =
       alglib.dfbuildrandomdecisionforest(trainInputOutput, trainInput.Length, featureCount, 1, trees, treeTrainSize)
@@ -157,3 +158,7 @@ submission rfLearn
 //0.48371 = kaggle rsme; RDF RMS Error: 0.451875; Out-of-bag RMS Error: 0.475592
 //0.47806 = kaggle rsme; RDF RMS Error: 0.446892; Out-of-bag RMS Error: 0.470399
 //0.47774 = kaggle rsme; RDF RMS Error: 0.446649; Out-of-bag RMS Error: 0.470098
+//?.????? = kaggle rsme; RDF RMS Error: 0.446260; Out-of-bag RMS Error: 0.469681 : attr text len
+//?.????? = kaggle rsme; RDF RMS Error: 0.445838; Out-of-bag RMS Error: 0.469287 : 600 trees
+//?.????? = kaggle rsme; RDF RMS Error: 0.433009; Out-of-bag RMS Error: 0.468017 : 600 trees/7.5% bag
+//0.47743 = kaggle rsme; RDF RMS Error: 0.420040; Out-of-bag RMS Error: 0.466575 : 600 trees/10% bag
