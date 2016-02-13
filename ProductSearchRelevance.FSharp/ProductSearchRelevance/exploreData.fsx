@@ -37,3 +37,12 @@ let attributeValues =
   |> Seq.map (fun r -> r.Value.ToLowerInvariant())
   |> Seq.distinct
   |> Seq.sort // 301744 distinct attribute values
+
+let trainQueries = CsvData.train.Rows |> Seq.map (fun r -> r.Search_term.ToLowerInvariant()) |> Set.ofSeq
+let testQueries = CsvData.test.Rows |> Seq.map (fun r -> r.Search_term.ToLowerInvariant()) |> Set.ofSeq
+let queries = Set.union trainQueries testQueries // 24601 distinct queries in train + test
+
+// look for queries with dimensions
+open System.Text.RegularExpressions
+let dimensionRegex = Regex(@"(\b\d{1,3}(?:\.\d{1,3})?\b(?:\s*(x|by)\s*)?)+", RegexOptions.IgnoreCase)
+let dimQueries = queries |> Set.filter dimensionRegex.IsMatch
