@@ -46,3 +46,7 @@ let queries = Set.union trainQueries testQueries // 24601 distinct queries in tr
 open System.Text.RegularExpressions
 let dimensionRegex = Regex(@"(\b\d{1,3}(?:\.\d{1,3})?\b(?:\s*(x|by)\s*)?)+", RegexOptions.IgnoreCase)
 let dimQueries = queries |> Set.filter dimensionRegex.IsMatch
+
+let trainTitles = CsvData.train.Rows |> Seq.map (fun r -> r.Product_title, r.Search_term)
+let lastWord (s:string) = s.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.last
+let sameEnds = trainTitles |> Seq.filter (fun (t,s) -> lastWord t = lastWord s)

@@ -78,6 +78,7 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
     let titleMatches = uniqueWords |> Array.filter (isMatch title)
     let descMatches = uniqueWords |> Array.filter (isMatch desc)
     let attrMatches = uniqueWords |> Array.filter (isMatch deduped)
+    let lastWordMatch = (uniqueWords |> Array.last) |> isMatch (titleWords |> Array.last)
     let wordMatchCount =
         uniqueWords
         |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
@@ -103,6 +104,7 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
        float descMatches.Length / float uniqueWords.Length
        float attrMatches.Length
        (if attributes.Length > 0 then 1. else 0.)
+       (if lastWordMatch then 1. else 0.)
        float (attrNameMatches |> Seq.length)
        queryTitlePosScore
 //       float attrMatches.Length / float uniqueWords.Length
@@ -162,3 +164,4 @@ submission rfLearn
 //?.????? = kaggle rsme; RDF RMS Error: 0.445838; Out-of-bag RMS Error: 0.469287 : 600 trees
 //?.????? = kaggle rsme; RDF RMS Error: 0.433009; Out-of-bag RMS Error: 0.468017 : 600 trees/7.5% bag
 //0.47743 = kaggle rsme; RDF RMS Error: 0.420040; Out-of-bag RMS Error: 0.466575 : 600 trees/10% bag
+//0.47629 = kaggle rsme; RDF RMS Error: 0.419235; Out-of-bag RMS Error: 0.465694 : last word match
