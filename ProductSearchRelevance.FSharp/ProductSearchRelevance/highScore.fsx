@@ -66,18 +66,27 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
     let uniqueWords = words |> splitOnSpaces |> Array.distinct
     let title = sample.Title
     let titleWords = title |> splitOnSpaces
+
     let indices = uniqueWords |> Seq.map (fun w -> titleWords |> Seq.tryFindIndexBack (isMatch w)) |> Seq.choose id
     let queryTitleIndices = indices |> Seq.map (fun i -> float i / float titleWords.Length) |> Array.ofSeq
     let queryTitlePosScore = if Array.isEmpty queryTitleIndices then 0. else Seq.average queryTitleIndices
+
     let attributes = attrSelector sample.ProductId |> Array.ofSeq
     let attributeNames = attributeNames attributes
     let attrNameMatches = attributeNames |> Seq.filter (fun n -> uniqueWords |> Seq.exists (isMatch n))
     let attributesText = attributesConcat attributes
     let desc = sample.Description |> fixLineConcats attributesText
     let deduped = attributesText |> Seq.where (containedIn desc >> not) |> String.concat " "
+
     let titleMatches = uniqueWords |> Array.filter (isMatch title)
     let descMatches = uniqueWords |> Array.filter (isMatch desc)
     let attrMatches = uniqueWords |> Array.filter (isMatch deduped)
+
+    let uniqueWordsBwd = uniqueWords |> Seq.rev
+    let titleWordsBwd = titleWords |> Seq.rev
+    let bwd = Seq.zip uniqueWordsBwd titleWordsBwd |> Seq.takeWhile (fun (u,t) -> u |> isMatch t) |> Seq.length
+    let fwd = Seq.zip uniqueWords titleWords |> Seq.takeWhile (fun (u,t) -> u |> isMatch t) |> Seq.length
+
     let lastWordMatch = (uniqueWords |> Array.last) |> isMatch (titleWords |> Array.last)
     let wordMatchCount =
         uniqueWords
@@ -92,6 +101,7 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
           match searchedBrand with // is query brand name in product title?
           | Some b -> if b |> containedIn title then 1 else -1
           | None -> 0
+
     [| float uniqueWords.Length
        float words.Length
        float title.Length
@@ -105,6 +115,8 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
        float attrMatches.Length
        (if attributes.Length > 0 then 1. else 0.)
        (if lastWordMatch then 1. else 0.)
+       float fwd
+       float bwd
        float (attrNameMatches |> Seq.length)
        queryTitlePosScore
 //       float attrMatches.Length / float uniqueWords.Length
@@ -155,8 +167,7 @@ let rfLearn (examples:Example array) attribMap =
 
 //let rfQuality = evaluate rfLearn
 submission rfLearn
-//0.48737 = kaggle rsme; oobrmserror = 0.4776784128; rmserror = 0.4303968628
-//? = kaggle rsme; oobrmserror = 0.4147019175; rmserror = 0.3529753185
+//0.48737 = kaggle rsme; RDF RMS Error: 0.430396; Out-of-bag RMS Error: 0.477678
 //0.48371 = kaggle rsme; RDF RMS Error: 0.451875; Out-of-bag RMS Error: 0.475592
 //0.47806 = kaggle rsme; RDF RMS Error: 0.446892; Out-of-bag RMS Error: 0.470399
 //0.47774 = kaggle rsme; RDF RMS Error: 0.446649; Out-of-bag RMS Error: 0.470098
@@ -165,3 +176,5 @@ submission rfLearn
 //?.????? = kaggle rsme; RDF RMS Error: 0.433009; Out-of-bag RMS Error: 0.468017 : 600 trees/7.5% bag
 //0.47743 = kaggle rsme; RDF RMS Error: 0.420040; Out-of-bag RMS Error: 0.466575 : 600 trees/10% bag
 //0.47629 = kaggle rsme; RDF RMS Error: 0.419235; Out-of-bag RMS Error: 0.465694 : last word match
+//?.????? = kaggle rsme; RDF RMS Error: 0.419149; Out-of-bag RMS Error: 0.465570 : longest sequence of query + title matching tail words 1933
+//0.47552 = kaggle rsme; RDF RMS Error: 0.418375; Out-of-bag RMS Error: 0.464791 : longest sequence of query + title matching lead words 2041
