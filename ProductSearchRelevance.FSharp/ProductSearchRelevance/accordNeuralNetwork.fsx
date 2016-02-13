@@ -47,11 +47,28 @@ let sanitizeString (stringToClean:string) =
   |> Array.iter(fun c -> sanitizeCharacter c stringBuilder)
   stringBuilder.ToString().Trim()
 
-let brands =
+let brandNames =
     CsvData.attributes.Rows
     |> Seq.where (fun r -> r.Name = "MFG Brand Name")
-    |> Seq.map (fun r -> r.Value.ToLowerInvariant())
-    |> Set.ofSeq
+    |> Seq.map (fun r -> r.Product_uid, r.Value.ToLowerInvariant())
+    |> Seq.cache
+
+let nonBrandAttributes =
+    CsvData.attributes.Rows
+    |> Seq.where (fun r -> r.Name <> "MFG Brand Name")
+    |> Seq.map (fun r -> r.Product_uid, r.Value.ToLowerInvariant())
+    |> Seq.cache
+
+let brandName productId = 
+    brandNames 
+    |> Seq.tryFind(fun (id,name) -> id = productId)
+    |> Option.map(fun (id,name) -> name)
+
+let nonBrandName productId = 
+    nonBrandAttributes 
+    |> Seq.filter(fun (id,name) -> id = productId)
+    |> Seq.map(fun (id,name) -> name)
+    |> Seq.reduce(fun a n -> a + " " + n )
 
 let stemDictionary = ConcurrentDictionary<string,string>(StringComparer.OrdinalIgnoreCase)
 let stem word = stemDictionary.GetOrAdd(word, (fun s -> (new EnglishStemmer()).Stem s))
@@ -65,65 +82,47 @@ let isMatch input word =
     let word' = word |> sanitizeString |> stem |> Regex.Escape
     Regex.IsMatch(input |> sanitizeString |> stemWords, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
 
-let features attrSelector productBrand (sample:CsvData.Sample) =
-    let words = sample.Query
-    let title = sample.Title
-    let desc = sample.Description
-    let uniqueWords = words |> splitOnSpaces |> Array.distinct
-    let titleMatches = uniqueWords |> Array.filter (isMatch title)
-    let descMatches = uniqueWords |> Array.filter (isMatch desc)
-    let attrMatches = uniqueWords |> Array.filter (isMatch (attrSelector sample.ProductId))
-    let wordMatchCount =
-        uniqueWords
-        |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
-        |> Seq.length
-    let brandNameMatch =
-        match productBrand with // does query contain product brand?
-        | Some bn -> if uniqueWords |> Array.exists (containedIn bn) then 1 else 0
-        | None ->
-          // does query contain any brand name?
-          let searchedBrand = brands |> Set.filter (containedIn words) |> Seq.tryHead
-          match searchedBrand with // is query brand name in product title?
-          | Some b -> if b |> containedIn title then 1 else -1
-          | None -> 0
-    [| float uniqueWords.Length
-       float words.Length
+let wordCountMatch uniqueTerms matches =
+    uniqueTerms
+    |> Seq.filter (fun w -> matches |> Seq.contains w)
+    |> Seq.length
+
+let createFeatures (uniqueTerms:string[]) (searchTerm:string) (title:string) (description:string) 
+                   (wordMatchCount:int) (titleMatches:string[]) (descriptionMatches:string[]) 
+                   (attributeMatches:string[]) (brandNameMatchCount:int) = 
+    [| float uniqueTerms.Length
+       float searchTerm.Length
        float title.Length
-       float desc.Length
+       float description.Length
        float wordMatchCount
        float titleMatches.Length
-       float titleMatches.Length / float uniqueWords.Length
-       float descMatches.Length / float uniqueWords.Length
-       float descMatches.Length
-       float attrMatches.Length
-       float brandNameMatch |]
+       float titleMatches.Length / float uniqueTerms.Length
+       float descriptionMatches.Length / float uniqueTerms.Length
+       float descriptionMatches.Length
+       float attributeMatches.Length
+       float brandNameMatchCount |]
 
-let getAttr attribMap productId =
-    match attribMap |> Map.tryFind productId with
-    | Some a ->
-      let getAttrStr name (value:string) =
-          match value.ToLowerInvariant() with
-          | "yes" -> name // if true attrib, include attrib name
-          | "no"  -> String.Empty
-          | _     -> value
-      a |> Seq.map (fun (_, name, value) -> getAttrStr name value) |> String.concat " "
-    | None -> String.Empty
+let features (sample:CsvData.Sample) =
+    let searchTerm = sample.Query.ToLowerInvariant()
+    let title = sample.Title.ToLowerInvariant()
+    let description = sample.Description.ToLowerInvariant()
+    let brandName = brandName sample.ProductId
+    let nonBrandName = nonBrandName sample.ProductId
 
-let getFeatures attribs attribMap sample =
-    sample |> features attribs (brandName attribMap sample.ProductId)
-
-let extractFeatures featureExtractor = 
-    PSeq.ordered
-    >> PSeq.map featureExtractor
-    >> PSeq.toArray
-
-let samples, trainOutput = Array.unzip examples
+    let uniqueTerms = searchTerm |> splitOnSpaces |> Array.distinct
+    let titleMatches = uniqueTerms |> Array.filter (isMatch title)
+    let descriptionMatches = uniqueTerms |> Array.filter (isMatch description)
+    let attributeMatches = uniqueTerms |> Array.filter (isMatch nonBrandName)
+    let matches = Seq.concat [titleMatches; descriptionMatches; attributeMatches]
+    let wordMatchCount = wordCountMatch uniqueTerms matches
+    let brandNameMatchCount = 0
+    createFeatures uniqueTerms searchTerm title description wordMatchCount titleMatches descriptionMatches attributeMatches brandNameMatchCount
 
 printfn "Extracting training features..."
-let attribs = getAttr attribMap
-let getFeatures' = getFeatures attribs attribMap
-let trainInput = samples |> extractFeatures getFeatures'
-
+let inputs = 
+    CsvData.getTrainSamples() 
+    |> PSeq.map(fun s -> features s)
+    |> Seq.toArray
 
 let inputs = [|
      [| 0.0; 1.0; 1.0; 0.0 |]; // 0.0
