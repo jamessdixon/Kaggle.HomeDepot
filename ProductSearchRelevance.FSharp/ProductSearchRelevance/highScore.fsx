@@ -52,7 +52,7 @@ let attributesConcat attribs =
         | "yes" -> name // if true attrib, include attrib name
         | "no"  -> String.Empty
         | _     ->
-          match value with
+          match name with
           | b when b.StartsWith "Bullet" -> value
           | _ -> name + " " + value
     attribs
@@ -156,3 +156,4 @@ submission rfLearn
 //? = kaggle rsme; oobrmserror = 0.4147019175; rmserror = 0.3529753185
 //0.48371 = kaggle rsme; RDF RMS Error: 0.451875; Out-of-bag RMS Error: 0.475592
 //0.47806 = kaggle rsme; RDF RMS Error: 0.446892; Out-of-bag RMS Error: 0.470399
+//0.47774 = kaggle rsme; RDF RMS Error: 0.446649; Out-of-bag RMS Error: 0.470098
