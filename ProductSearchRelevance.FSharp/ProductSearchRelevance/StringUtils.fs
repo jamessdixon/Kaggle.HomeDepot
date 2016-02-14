@@ -37,16 +37,6 @@ let stemWords =
   >> Array.map stem
   >> String.concat " "
 
-let inchRegex = Regex(@"in(?:ches|ch)?\.?", RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
-let footRegex = Regex(@"(?:foot|feet)\.?", RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
-let poundRegex = Regex(@"(?:pound|lb)s?\.?", RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
-
-let standardizeMeasures str = 
-  str
-  |> replace inchRegex "in."
-  |> replace footRegex "ft."
-  |> replace poundRegex "lb."
-
 let stopWords = 
   [| "and"; "the"; "to"; "for"; "a"; "with"; "of"; "is"; "or"; "your"; "this"; "from"; "on"; "that"; "easy"; "are"; "be"; "it"; "an"; "you"; 
      "use"; "can"; "by"; "up"; "design"; "features"; "as"; "any"; "has"; "provides"; "not"; "will"; "installation"; "residents"; "designed"; 
@@ -61,7 +51,7 @@ let sanitize (str : string) =
   for char in str do
     match char with
     | c when Char.IsLetterOrDigit c || Char.IsWhiteSpace c -> clean.Append char |> ignore
-    | '-' | '/' -> clean.Append " " |> ignore
+    | '-' -> clean.Append " " |> ignore
     | _ -> ()
   clean.ToString().TrimEnd()
 

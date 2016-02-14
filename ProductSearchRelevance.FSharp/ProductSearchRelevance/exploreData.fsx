@@ -1,6 +1,7 @@
 ﻿#I @"../packages/"
 #r "FSharp.Data/lib/net40/FSharp.Data.dll"
 #load "CsvData.fs"
+#load "Dimensions.fs"
 
 // NOTE the train target variable is an average of at least 3 human raters. It could be more than 3.
 
@@ -43,9 +44,9 @@ let testQueries = CsvData.test.Rows |> Seq.map (fun r -> r.Search_term.ToLowerIn
 let queries = Set.union trainQueries testQueries // 24601 distinct queries in train + test
 
 // look for queries with dimensions
+open Dimensions
 open System.Text.RegularExpressions
-let dimensionRegex = Regex(@"(\b\d{1,3}(?:\.\d{1,3})?\b(?:\s*(x|by)\s*)?)+", RegexOptions.IgnoreCase)
-let dimQueries = queries |> Set.filter dimensionRegex.IsMatch
+let dimQueries = queries |> Seq.collect (standardizeMeasures >> measurementRegex.Matches >> Seq.cast<Match>)
 
 let trainTitles = CsvData.train.Rows |> Seq.map (fun r -> r.Product_title, r.Search_term)
 let lastWord (s:string) = s.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.last
