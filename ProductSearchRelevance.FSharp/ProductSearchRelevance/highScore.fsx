@@ -12,6 +12,7 @@
 #load "StringUtils.fs"
 #load "Core.fs"
 #load "TFIDF.fs"
+#load "Dimensions.fs"
 
 open System
 open System.Text.RegularExpressions
@@ -19,6 +20,7 @@ open FSharp.Collections.ParallelSeq
 open HomeDepot.Core
 open StringUtils
 open System.Text
+open Dimensions
 
 printfn "Building Brand Name set..."
 let brands =
@@ -62,9 +64,9 @@ let attributeNames (attribs:(string * string) seq) =
     attribs |> Seq.where (fun (k,_) -> k.StartsWith "Bullet" |> not) |> Seq.map fst
 
 let features attrSelector productBrand (sample:CsvData.Sample) =
-    let words = sample.Query
+    let words = sample.Query |> standardizeMeasures
     let uniqueWords = words |> splitOnSpaces |> Array.distinct
-    let title = sample.Title
+    let title = sample.Title |> standardizeMeasures
     let titleWords = title |> splitOnSpaces
 
     let indices = uniqueWords |> Seq.map (fun w -> titleWords |> Seq.tryFindIndexBack (isMatch w)) |> Seq.choose id
@@ -178,3 +180,4 @@ submission rfLearn
 //0.47629 = kaggle rsme; RDF RMS Error: 0.419235; Out-of-bag RMS Error: 0.465694 : last word match
 //?.????? = kaggle rsme; RDF RMS Error: 0.419149; Out-of-bag RMS Error: 0.465570 : longest sequence of query + title matching tail words 1933
 //0.47552 = kaggle rsme; RDF RMS Error: 0.418375; Out-of-bag RMS Error: 0.464791 : longest sequence of query + title matching lead words 2041
+//0.47396 = kaggle rsme; RDF RMS Error: 0.417514; Out-of-bag RMS Error: 0.463789 : standarize measurements in title + query
