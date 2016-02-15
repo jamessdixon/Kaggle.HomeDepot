@@ -10,19 +10,20 @@ The model here is simply 'predict the average'
 #I @"../packages/"
 #r "FSharp.Data/lib/net40/FSharp.Data.dll"
 
-#load "Core.fs"
-open HomeDepot.Core
+#load "Model.fs"
+open HomeDepot.Model
 
-let learn : Learn = function (examples,products,attributes) ->
+let learner sample = 
     
     let average = 
-        examples 
-        |> Seq.averageBy (fun ex -> ex.Relevance)
-        |> float
+        sample 
+        |> Seq.averageBy (fun (label,observation) -> label)
     
     let model (observation:Observation) = average
     
     model
 
-evaluate learn
-|> printfn "RMSE: %.4f"
+evaluate 10 learner
+
+let test = learner trainset
+rmse (trainset |> Array.map (fun (x,y) -> x, test y))
