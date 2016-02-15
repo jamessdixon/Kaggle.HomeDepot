@@ -162,10 +162,13 @@ module Model =
 
                 printfn "Evaluating block %i" (block+1)
 
-                let hold, used = indexes |> Array.partition ((=) block)
+                let hold, used = 
+                    indexes 
+                    |> Array.mapi (fun i block -> i, block) 
+                    |> Array.partition (fun (index,b) -> b = block)
 
-                let holdSet = hold |> Array.map (fun i -> trainset.[i])
-                let usedSet = used |> Array.map (fun i -> trainset.[i])
+                let holdSet = hold |> Array.map (fun (i,_) -> trainset.[i])
+                let usedSet = used |> Array.map (fun (i,_) -> trainset.[i])
 
                 printfn "  Learning"
                 let predictor = learner usedSet
