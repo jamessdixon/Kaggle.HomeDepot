@@ -1,21 +1,13 @@
 ﻿
-#I @"../packages/"
-
-#r "Accord/lib/net45/Accord.dll"
-#r "FSharp.Data/lib/net40/FSharp.Data.dll"
-#r "Accord.Math/lib/net45/Accord.Math.dll"
-#r "Accord.Statistics/lib/net45/Accord.Statistics.dll"
-#r "FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
-#r "StemmersNet/lib/net20/StemmersNet.dll"
-#r "alglibnet2/lib/alglibnet2.dll"
-#r "FuzzyString/lib/FuzzyString.dll"
-#r "AForge.Neuro/lib/AForge.Neuro.dll"
-#r "Accord.Neuro/lib/net40/Accord.Neuro.dll"
-
-#load "CsvData.fs"
-#load "StringUtils.fs"
-#load "Core.fs"
-#load "TFIDF.fs"
+#r "../packages/Accord/lib/net40/Accord.dll"
+#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
+#r "../packages/Accord.Math/lib/net40/Accord.Math.dll"
+#r "../packages/Accord.Statistics/lib/net40/Accord.Statistics.dll"
+#r "../packages/FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
+#r "../packages/AForge.Neuro/lib/AForge.Neuro.dll"
+#r "../packages/Accord.Neuro/lib/net40/Accord.Neuro.dll"
+#r "../packages/StemmersNet/lib/net20/StemmersNet.dll"
+#r "../packages/FuzzyString/lib/FuzzyString.dll"
 
 open System
 open System.IO
@@ -26,139 +18,140 @@ open Accord.Statistics.Models.Regression.Linear
 open Iveonik.Stemmers
 open FSharp.Collections.ParallelSeq
 open System.Collections.Concurrent
-open HomeDepot.Core
 open AForge.Neuro
 open Accord.Neuro
 open Accord.Neuro.Learning
 open Accord.Statistics
 open Accord
 
-let sanitizeCharacter characterToClean (stringBuilder:StringBuilder) =
-    match characterToClean with
-    | c when Char.IsLetterOrDigit c -> stringBuilder.Append c |> ignore
-    | c when Char.IsWhiteSpace c -> stringBuilder.Append c |> ignore
-    | '-' -> stringBuilder.Append " " |> ignore
-    | '/' -> stringBuilder.Append " " |> ignore
-    | _ -> ()
+[<Literal>]
+let trainDataPath = "../data/train.csv"
+type Train = CsvProvider<trainDataPath>
+let train = Train.GetSample()
 
-let sanitizeString (stringToClean:string) =
-  let stringBuilder = StringBuilder()
-  stringToClean.ToCharArray() 
-  |> Array.iter(fun c -> sanitizeCharacter c stringBuilder)
-  stringBuilder.ToString().Trim()
+[<Literal>]
+let testDataPath = "../data/test.csv"
+type Test = CsvProvider<testDataPath>
+let test = Test.GetSample()
 
-let brandNames =
-    CsvData.attributes.Rows
-    |> Seq.where (fun r -> r.Name = "MFG Brand Name")
-    |> Seq.map (fun r -> r.Product_uid, r.Value.ToLowerInvariant())
-    |> Seq.cache
+[<Literal>]
+let productDescriptionsPath = "../data/product_descriptions.csv"
+type Products = CsvProvider<productDescriptionsPath>
+let products = Products.GetSample()
 
-let nonBrandAttributes =
-    CsvData.attributes.Rows
-    |> Seq.where (fun r -> r.Name <> "MFG Brand Name")
-    |> Seq.map (fun r -> r.Product_uid, r.Value.ToLowerInvariant())
-    |> Seq.cache
+let productDescMap =
+    products.Rows
+    |> Seq.map (fun pd -> pd.Product_uid, pd.Product_description)
+    |> Map.ofSeq
 
-let brandName productId = 
-    brandNames 
-    |> Seq.tryFind(fun (id,name) -> id = productId)
-    |> Option.map(fun (id,name) -> name)
+let productDescription uid = 
+    productDescMap 
+    |> Map.tryFind uid
 
-let nonBrandName productId = 
-    nonBrandAttributes 
-    |> Seq.filter(fun (id,name) -> id = productId)
-    |> Seq.map(fun (id,name) -> name)
-    |> Seq.reduce(fun a n -> a + " " + n )
+let wordMatch (words:string) (title:string) (desc:string option) =
+    let isMatch input word = 
+        Regex.IsMatch(input, sprintf @"\b%s\b" (Regex.Escape word), RegexOptions.IgnoreCase)
+    let words' = words.Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
+    let uniqueWords = words' |> Array.distinct
+    let numberInTitle = uniqueWords |> Array.filter (isMatch title) |> Array.length
+    let numberInDescription =
+        match desc with
+        | Some desc -> uniqueWords |> Array.filter (isMatch desc) |> Array.length
+        | None -> 0
+    numberInTitle, numberInDescription, uniqueWords.Length 
 
-let stemDictionary = ConcurrentDictionary<string,string>(StringComparer.OrdinalIgnoreCase)
-let stem word = stemDictionary.GetOrAdd(word, (fun s -> (new EnglishStemmer()).Stem s))
-let splitOnSpaces (str:string) = str.Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
-let stemWords = splitOnSpaces >> Array.map stem >> String.concat " "
-
-let containedIn (input:string) word =
-    input.IndexOf(word, StringComparison.OrdinalIgnoreCase) >= 0
-
-let isMatch input word =
-    let word' = word |> sanitizeString |> stem |> Regex.Escape
-    Regex.IsMatch(input |> sanitizeString |> stemWords, sprintf @"\b%s" word', RegexOptions.IgnoreCase)
-
-let wordCountMatch uniqueTerms matches =
-    uniqueTerms
-    |> Seq.filter (fun w -> matches |> Seq.contains w)
-    |> Seq.length
-
-let createFeatures (uniqueTerms:string[]) (searchTerm:string) (title:string) (description:string) 
-                   (wordMatchCount:int) (titleMatches:string[]) (descriptionMatches:string[]) 
-                   (attributeMatches:string[]) (brandNameMatchCount:int) = 
-    [| float uniqueTerms.Length
-       float searchTerm.Length
-       float title.Length
-       float description.Length
-       float wordMatchCount
-       float titleMatches.Length
-       float titleMatches.Length / float uniqueTerms.Length
-       float descriptionMatches.Length / float uniqueTerms.Length
-       float descriptionMatches.Length
-       float attributeMatches.Length
-       float brandNameMatchCount |]
-
-let features (sample:CsvData.Sample) =
-    let searchTerm = sample.Query.ToLowerInvariant()
-    let title = sample.Title.ToLowerInvariant()
-    let description = sample.Description.ToLowerInvariant()
-    let brandName = brandName sample.ProductId
-    let nonBrandName = nonBrandName sample.ProductId
-
-    let uniqueTerms = searchTerm |> splitOnSpaces |> Array.distinct
-    let titleMatches = uniqueTerms |> Array.filter (isMatch title)
-    let descriptionMatches = uniqueTerms |> Array.filter (isMatch description)
-    let attributeMatches = uniqueTerms |> Array.filter (isMatch nonBrandName)
-    let matches = Seq.concat [titleMatches; descriptionMatches; attributeMatches]
-    let wordMatchCount = wordCountMatch uniqueTerms matches
-    let brandNameMatchCount = 0
-    createFeatures uniqueTerms searchTerm title description wordMatchCount titleMatches descriptionMatches attributeMatches brandNameMatchCount
-
-printfn "Extracting training features..."
-let inputs = 
-    CsvData.getTrainSamples() 
-    |> PSeq.map(fun s -> features s)
+let trainInput = 
+    train.Rows 
+    |> Seq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
+    |> Seq.map (fun (t,d,w) -> [| float t; float d; float w |])
     |> Seq.toArray
 
-let inputs = [|
-     [| 0.0; 1.0; 1.0; 0.0 |]; // 0.0
-     [| 0.0; 1.0; 0.0; 0.0 |]; // 0.0
-     [| 0.0; 0.0; 1.0; 0.0 |]; // 0.0
-     [| 0.0; 1.0; 1.0; 0.0 |]; // 0.0
-     [| 0.0; 1.0; 0.0; 0.0 |]; // 0.0
-     [| 1.0; 0.0; 0.0; 0.0 |]; // 1.0
-     [| 1.0; 0.0; 0.0; 0.0 |]; // 1.0
-     [| 1.0; 0.0; 0.0; 1.0 |]; // 1.0
-     [| 0.0; 0.0; 0.0; 1.0 |]; // 1.0
-     [| 0.0; 0.0; 0.0; 1.0 |]; // 1.0
-     [| 1.0; 1.0; 1.0; 1.0 |]; // 2
-     [| 1.0; 0.0; 1.0; 1.0 |]; // 2
-     [| 1.0; 1.0; 0.0; 1.0 |]; // 2
-     [| 0.0; 1.0; 1.0; 1.0 |]; // 2
-     [| 1.0; 1.0; 1.0; 1.0 |]; // 2
-     |]
+train.Rows 
+    |> Seq.countBy(fun t -> t.Relevance) 
+    |> Seq.sortBy(fun t -> fst t)
+    |> Seq.iter(fun t -> printfn "%A,%A" (fst t) (snd t))
 
-let classes = [|
-    0; 0; 0; 0; 0;
-    1; 1; 1; 1; 1;
-    2; 2; 2; 2; 2;
-    |]
+printfn "Finished Prepping Data..."
 
-let outputs = Accord.Statistics.Tools.Expand(classes, -1.0, 1.0)
+let getClass relevance =
+    match relevance with
+    | 1.0 -> 0
+    | 1.33 -> 1
+    | 1.67 -> 2
+    | 2.0 -> 3
+    | 2.33 -> 4
+    | 2.67 -> 5
+    | 3.0 -> 6
+    | _ -> 9
+
+let getRelevance outputClass =
+    match outputClass with
+    | 0 -> 1.0
+    | 1 -> 1.33
+    | 2 -> 1.67
+    | 3 -> 2.0
+    | 4 -> 2.33
+    | 5 -> 2.67
+    | 6 -> 3.0
+    | _ -> 2.0
+
+let trainOutput = 
+    train.Rows
+    |> Seq.map (fun t -> float t.Relevance)
+    |> Seq.map (fun r -> getClass r )
+    |> Seq.toArray
+
+let outputs = Accord.Statistics.Tools.Expand(trainOutput, -1.0, 1.0)
 let activationFunction = new BipolarSigmoidFunction()
-let activationNetwork = ActivationNetwork(activationFunction, 4, 5, 3) 
+let activationNetwork = ActivationNetwork(activationFunction,3, 5, 8) 
 let randomizer = new NguyenWidrow(activationNetwork)
 randomizer.Randomize() 
 let teacher = new ParallelResilientBackpropagationLearning(activationNetwork)
 
-let mutable error = 1.0
-while error > 1e-5 do
-    error <- teacher.RunEpoch(inputs, outputs)
+//let mutable error = 1.0
+//while error > 1e-5 do
+//    error <- teacher.RunEpoch(trainInput, outputs)
+//    ()
+
+let mutable count = 1
+while count < 60 do
+    count <- count + 1
+    teacher.RunEpoch(trainInput, outputs) |> ignore
     ()
 
+printfn "Finished Training NN..."
+
+let testInput =
+    test.Rows 
+    |> Seq.map (fun w -> wordMatch w.Search_term w.Product_title (productDescription w.Product_uid))
+    |> Seq.map (fun (t,d,w) -> [| float t; float d; float w |])
+    |> Seq.toArray
+
+let testOutput =
+    testInput 
+    |> Array.map(fun r -> activationNetwork.Compute r)
+    |> Array.map(fun a -> a |> Seq.mapi(fun i v -> i,v))
+    |> Array.map(fun a -> a |> Seq.maxBy(fun (i,v) -> v))
+    |> Array.map(fun o -> fst o)
+    |> Array.map(fun v -> getRelevance v)
+
+testOutput 
+    |> Seq.countBy(fun t -> t) 
+    |> Seq.sortBy(fun t -> fst t)
+    |> Seq.iter(fun t -> printfn "%A,%A" (fst t) (snd t))
+
+let testIds = test.Rows |> Seq.map(fun t -> t.Id)
+
+printfn "Finished estiamting Test..."
+
+let submission = 
+    Seq.zip test.Rows testOutput
+    |> Seq.map (fun (r,o) -> sprintf "%A,%A" r.Id o)
+    |> Seq.toList
+
+let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp.csv"
+File.WriteAllLines(outputPath, "id,relevance" :: submission)
+
+printfn "Finished outputing file..."
 
 
