@@ -75,6 +75,7 @@
     <None Include="accordCrossValidation.fsx" />
     <None Include="accordNeuralNetwork.fsx" />
     <Content Include="paket.references" />
+    <None Include="Logistic.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Accord.Neuro">
