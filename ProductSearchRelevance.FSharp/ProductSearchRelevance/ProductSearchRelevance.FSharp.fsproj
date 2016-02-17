@@ -61,6 +61,7 @@
   <ItemGroup>
     <Compile Include="Model.fsi" />
     <Compile Include="Model.fs" />
+    <Compile Include="Features.fs" />
     <Compile Include="Dimensions.fs" />
     <Compile Include="StringUtils.fs" />
     <Compile Include="CsvData.fs" />

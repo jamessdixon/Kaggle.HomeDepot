@@ -4,9 +4,16 @@ module Model =
 
     type Attributes = Map<string,string>
 
-    type Product
+    type Product = {
+        UID:int
+        Title:string
+        Description:string
+        Attributes:Attributes }
 
-    type Observation
+    type Observation = {
+        ID:int
+        SearchTerm:string
+        Product:Product }
 
     type Relevance = float
     type Example = Relevance * Observation
