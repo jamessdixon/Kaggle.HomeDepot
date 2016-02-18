@@ -2,7 +2,10 @@
 
 module Features = 
 
+    open System
+    open System.Text.RegularExpressions
     open HomeDepot.Model
+    open FParsec
 
     type Feature = Observation -> float
 
@@ -25,8 +28,6 @@ module Features =
     let stopwords = set [ "and"; "or"; "the"; "a"; "an"; "of" ]
     let removeStopwords (text:string Set) = Set.difference text stopwords
 
-    open System.Text.RegularExpressions
-
     let matchWords = Regex(@"\w+",RegexOptions.Compiled)
 
     let wordTokenizer (text:string) =
@@ -36,6 +37,50 @@ module Features =
         |> Seq.map (fun m -> m.Value)
         |> Set.ofSeq
 
+    // given a requested value and the result
+    // return a value of 1.0 for a perfect match,
+    // - 1.0 for a bad match
+    let closeness (tolerance:float) requested result = 
+        1. - 2. * (abs (requested - result) / ((1.0 - tolerance) * max requested result))
+
+    (* 
+    // illustration
+    let x = 10.0
+    let tol = 0.25
+    // this is always -1.0, regardless of tol
+    closeness tol x (x * tol)     
+    closeness tol x (x / tol)     
+    *)
+
+    let spaceOrDash :Parser<unit,unit> = 
+        (skipChar '-') <|> spaces 
+
+    let pFraction : Parser<float,unit> = 
+        tuple3 
+            (pint32 .>> spaceOrDash)
+            (pint32 .>> spaces .>> pstring "/" .>> spaces) 
+            pint32
+        |>> fun (x,y,z) -> float x + float y / float z
+
+    // basic units / no fractions
+
+    let pVolts : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "volt" <|> pstring "V" .>> (eof <|> spaces1))
+    let pWatts : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "watt" <|> pstring "W" .>> (eof <|> spaces1))
+
+    let findMeasure (parser:Parser<float,unit>) (text:string) =
+        let last = text.Length - 1
+        let rec search i =
+            if i = last 
+            then None
+            elif (Char.IsDigit text.[i])
+            then
+                match run parser (text.Substring(i)) with
+                | Success(x,_,_) -> Some x
+                | Failure(_) -> search (i+1)
+            else 
+                search (i+1)
+        search 0
+        
     (*
     Feature definitions
     *)
@@ -147,3 +192,22 @@ module Features =
                         if title.Contains word then acc + weight else acc) 0.
                 score
 
+    let ``matching voltage`` : FeatureLearner = 
+        fun sample ->
+            fun obs -> 
+                match (findMeasure pVolts obs.SearchTerm) with
+                | None -> 0.
+                | Some(v) ->
+                    match (findMeasure pVolts obs.Product.Title) with
+                    | None -> -1.0
+                    | Some(r) -> closeness 0.5 v r
+
+    let ``matching wattage`` : FeatureLearner = 
+        fun sample ->
+            fun obs -> 
+                match (findMeasure pWatts obs.SearchTerm) with
+                | None -> 0.
+                | Some(v) ->
+                    match (findMeasure pVolts obs.Product.Title) with
+                    | None -> -1.0
+                    | Some(r) -> closeness 0.5 v r
