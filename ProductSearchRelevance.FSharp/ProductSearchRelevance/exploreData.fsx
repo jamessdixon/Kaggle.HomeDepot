@@ -51,3 +51,62 @@ let dimQueries = queries |> Seq.collect (standardizeMeasures >> measurementRegex
 let trainTitles = CsvData.train.Rows |> Seq.map (fun r -> r.Product_title, r.Search_term)
 let lastWord (s:string) = s.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.last
 let sameEnds = trainTitles |> Seq.filter (fun (t,s) -> lastWord t = lastWord s)
+
+open FSharp.Data
+
+[<Literal>]
+let attributesPath = @"../data/attributes.csv"
+type AllAttributes = CsvProvider<attributesPath>
+
+let attributesUsage =
+    AllAttributes.GetSample().Rows
+    |> Seq.countBy (fun x -> x.Name)
+    |> Seq.toList
+
+attributesUsage
+|> Seq.filter (fun (_,count) -> count = 1)
+|> Seq.length
+
+attributesUsage
+|> Seq.filter (fun (att,_) -> not (att.Contains("Bullet")))
+|> Seq.sortByDescending snd
+|> Seq.take 100
+|> Seq.toList
+
+// width height
+
+// volt, watt, amps
+
+// gallon?
+
+[<Literal>]
+let trainPath = @"../data/train.csv"
+
+type Train = CsvProvider<trainPath>
+let train = Train.GetSample().Rows
+
+#r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsecCS.dll"
+#r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsec.dll"
+#load "Model.fs"
+#load "Features.fs"
+
+open HomeDepot.Model
+open HomeDepot.Features
+
+let wattage = ``matching wattage`` (trainset |> Array.map snd)
+trainset |> Seq.map (fun (l,o) -> l, wattage o)
+
+train
+|> Seq.filter (fun x -> x.Search_term.ToLowerInvariant().Contains("volt"))
+|> Seq.length
+
+train
+|> Seq.filter (fun x -> x.Product_title.ToLowerInvariant().Contains("volt"))
+|> Seq.length
+
+
+train
+|> Seq.filter (fun x -> x.Search_term.ToLowerInvariant().Contains("watt"))
+|> Seq.length
+
+train |> Seq.length

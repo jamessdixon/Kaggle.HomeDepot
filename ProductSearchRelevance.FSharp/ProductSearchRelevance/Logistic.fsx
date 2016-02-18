@@ -1,8 +1,11 @@
 ﻿#I @"../packages/"
-#r "FSharp.Data/lib/net40/FSharp.Data.dll"
 
+#r "FSharp.Data/lib/net40/FSharp.Data.dll"
 #load "Model.fs"
 open HomeDepot.Model
+
+#r @"FParsec/lib/net40-client/FParsecCS.dll"
+#r @"FParsec/lib/net40-client/FParsec.dll"
 #load "Features.fs"
 open HomeDepot.Features
 
@@ -29,6 +32,8 @@ let features =
         ``words in title``
         ``words in description``
 //        ``product with no brand``
+//        ``matching voltage``
+//        ``matching wattage``
     |]
 
 let learner (sample:Example[]) =
@@ -55,6 +60,9 @@ let learner (sample:Example[]) =
         if error < 0.001
         then logistic
         else learn ()
+
+    [ 0 .. featuresCount - 1]
+    |> List.iter (fun i -> printfn " %b" (logistic.GetWaldTest(i).Significant))
 
     let predictor = learn ()
 
