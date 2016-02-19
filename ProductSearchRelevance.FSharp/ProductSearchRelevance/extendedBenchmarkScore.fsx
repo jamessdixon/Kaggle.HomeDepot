@@ -18,7 +18,7 @@ open FSharp.Collections.ParallelSeq
 open StringUtils
 open Accord.Statistics.Models.Regression.Linear
 open HomeDepot.Core
-open TFIDF
+open HomeDepot.TFIDF
 open Accord.Statistics.Analysis
 
 printfn "Building Brand Name set..."

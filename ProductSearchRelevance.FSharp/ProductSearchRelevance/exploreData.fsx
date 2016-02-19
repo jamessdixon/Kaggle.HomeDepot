@@ -85,6 +85,12 @@ let trainPath = @"../data/train.csv"
 type Train = CsvProvider<trainPath>
 let train = Train.GetSample().Rows
 
+train 
+|> Seq.filter (fun x -> 
+    let ws = x.Search_term.Split([|' '|],System.StringSplitOptions.RemoveEmptyEntries)
+    ws.Length <> (ws |> Array.distinct |> Array.length))
+|> Seq.length
+
 #r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsecCS.dll"
 #r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsec.dll"
 #load "Model.fs"

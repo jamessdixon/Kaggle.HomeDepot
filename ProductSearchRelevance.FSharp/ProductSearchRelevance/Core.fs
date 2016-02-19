@@ -3,6 +3,7 @@
 open CsvData
 
 module Core =
+
     open System
 
     type Quality = float

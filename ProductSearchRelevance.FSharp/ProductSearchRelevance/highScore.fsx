@@ -20,7 +20,7 @@ open FSharp.Collections.ParallelSeq
 open HomeDepot.Core
 open StringUtils
 open System.Text
-open Dimensions
+open HomeDepot.Dimensions
 
 printfn "Building Brand Name set..."
 let brands =

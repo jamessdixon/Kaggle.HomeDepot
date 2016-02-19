@@ -3,9 +3,11 @@
 module Features = 
 
     open System
+    open System.Collections.Concurrent
     open System.Text.RegularExpressions
     open HomeDepot.Model
     open FParsec
+    open Iveonik.Stemmers
 
     type Feature = Observation -> float
 
@@ -25,6 +27,8 @@ module Features =
 
     let lower (text:string) = text.ToLowerInvariant ()
 
+    let splitBy (sep:char) (text:string) = text.Split(sep) |> Array.filter((<>) "")
+
     let stopwords = set [ "and"; "or"; "the"; "a"; "an"; "of" ]
     let removeStopwords (text:string Set) = Set.difference text stopwords
 
@@ -36,6 +40,46 @@ module Features =
         |> Seq.cast<Match>
         |> Seq.map (fun m -> m.Value)
         |> Set.ofSeq
+
+    let stemDictionary = ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    let stem word = 
+        stemDictionary.GetOrAdd(word, (fun s -> (EnglishStemmer()).Stem s))
+
+    let isMatch input word =
+        let word' = word |> stem |> Regex.Escape
+        let input' = input |> stem |> Regex.Escape
+        Regex.IsMatch(input', word', RegexOptions.IgnoreCase)
+    
+(*
+        let inchPattern = @"\bin(?:ches|ch)?\.?\b"
+        let footPattern = @"\b(?:foot|feet|ft)\.?"
+        let poundPattern = @"\b(?:pound|lb)s?\.?"
+        let cubicFeetPattern = @"\bcu(?:bic)?\.?\s+(?:foot|feet|ft)\.?"
+        let gallonPattern = @"\bgal(?:lon)?s?\b"
+
+        let patterns = 
+          [ @"(\d+)\s*(?:x|by)\s*", "$1 x "
+            inchPattern, "in."
+            footPattern, "ft."
+            poundPattern, "lb."
+            cubicFeetPattern, "cu.ft."
+            gallonPattern, "gal."
+            @"(\d+)'", "$1 ft."
+            "(\\d+)\"", "$1 in." ]
+
+        let replacers = patterns |> List.map (fun (p,r) -> Regex(p, RegexOptions.IgnoreCase ||| RegexOptions.Compiled), r)
+
+        let measurementRegex =
+          Regex(@"\b(?<Whole>\d{1,2})([-\s](?<Numerator>\d{1,2})/(?<Denominator>\d{1,2}))?(?:\s*(in|ft|lb|cu\.ft|gal)\.)?", RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
+
+        let inline replace (regex : Regex) (repl : string) (str : string) = regex.Replace(str, repl)
+        let collapseMeasurement = Regex(@"(\d)\s(in|ft|lb|cu\.\sft|gal)", RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
+        let standardizeMeasures str =
+          let standard = replacers |> List.fold (fun s (p,r) -> p.Replace(s, r)) str
+          collapseMeasurement.Replace(standard, "$1$2")
+
+        standardizeMeasures text
+*)    
 
     // given a requested value and the result
     // return a value of 1.0 for a perfect match,
@@ -88,6 +132,14 @@ module Features =
     let ``number of attributes`` : FeatureLearner =
         fun sample ->
             fun obs -> obs.Product.Attributes.Count |> float
+
+    let ``number of non-bullet attributes`` : FeatureLearner =
+        fun sample ->
+            fun obs -> 
+                obs.Product.Attributes
+                |> Map.filter (fun key _ -> not (key.Contains "Bullet"))
+                |> Seq.length 
+                |> float
     
     let ``number of attributes log`` : FeatureLearner = 
         fun sample ->
@@ -135,8 +187,8 @@ module Features =
     let ``search terms and title % word intersection`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let terms = obs.SearchTerm |> lower |> wordTokenizer
-                let title = obs.Product.Title |> lower |> wordTokenizer
+                let terms = obs.SearchTerm |> lower |> wordTokenizer |> Set.map stem
+                let title = obs.Product.Title |> lower |> wordTokenizer |> Set.map stem
                 let longest = max terms.Count title.Count
                 let intersect = Set.intersect terms title |> Set.count
                 float intersect / float longest
@@ -155,8 +207,10 @@ module Features =
         fun sample ->
             fun obs -> 
                 let terms = obs.SearchTerm |> lower |> wordTokenizer
-                let desc = obs.Product.Description |> lower
-                let count = terms |> Set.fold (fun count word -> if desc.Contains word then count + 1 else count) 0
+                let desc = obs.Product.Description |> splitBy ' '
+                let count = 
+                    terms 
+                    |> Set.fold (fun count word -> count + (desc |> Seq.filter (isMatch word) |> Seq.length)) 0
                 float count / float terms.Count
 
     let ``search terms in title, order weighted`` : FeatureLearner = 
@@ -164,15 +218,13 @@ module Features =
             fun obs -> 
                 let terms = 
                     obs.SearchTerm 
-                    |> lower 
-                    |> fun x -> x.Split ' ' 
-                    |> Array.filter (fun x -> x <> "")
+                    |> splitBy ' '
                     |> Array.mapi (fun i word -> word, 1. / (pown 2. i))
-                let title = obs.Product.Title |> lower
+                let title = obs.Product.Title |> splitBy ' '
                 let score = 
                     terms 
                     |> Array.fold (fun acc (word,weight) -> 
-                        if title.Contains word then acc + weight else acc) 0.
+                        if title |> Array.exists(isMatch word) then acc + weight else acc) 0.
                 score
 
     let ``search terms in title, reverse order weighted`` : FeatureLearner = 
@@ -180,16 +232,14 @@ module Features =
             fun obs -> 
                 let terms = 
                     obs.SearchTerm 
-                    |> lower 
-                    |> fun x -> x.Split ' ' 
-                    |> Array.filter (fun x -> x <> "")
+                    |> splitBy ' '
                     |> Array.rev
                     |> Array.mapi (fun i word -> word, 1. / (pown 2. i))
-                let title = obs.Product.Title |> lower
+                let title = obs.Product.Title |> splitBy ' '
                 let score = 
                     terms 
                     |> Array.fold (fun acc (word,weight) -> 
-                        if title.Contains word then acc + weight else acc) 0.
+                        if title |> Array.exists(isMatch word) then acc + weight else acc) 0.
                 score
 
     let ``matching voltage`` : FeatureLearner = 
@@ -200,7 +250,7 @@ module Features =
                 | Some(v) ->
                     match (findMeasure pVolts obs.Product.Title) with
                     | None -> -1.0
-                    | Some(r) -> closeness 0.5 v r
+                    | Some(r) -> closeness 0.75 v r
 
     let ``matching wattage`` : FeatureLearner = 
         fun sample ->
@@ -210,4 +260,4 @@ module Features =
                 | Some(v) ->
                     match (findMeasure pVolts obs.Product.Title) with
                     | None -> -1.0
-                    | Some(r) -> closeness 0.5 v r
+                    | Some(r) -> closeness 0.75 v r

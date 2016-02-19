@@ -1,54 +1,56 @@
-﻿module TFIDF
+﻿namespace HomeDepot
 
-open CsvData
-open FSharp.Collections.ParallelSeq
-open StringUtils
-open System
-open System.Collections.Concurrent
+module TFIDF =
 
-let nGrams n words = 
-  words
-  |> Seq.windowed n
-  |> Seq.map join
+    open CsvData
+    open FSharp.Collections.ParallelSeq
+    open StringUtils
+    open System
+    open System.Collections.Concurrent
 
-type TermToken = int
+    let nGrams n words = 
+      words
+      |> Seq.windowed n
+      |> Seq.map join
 
-type TermFrequency = TermToken * int
+    type TermToken = int
 
-type TFIDF = TermToken * float
+    type TermFrequency = TermToken * int
 
-type Document = TermFrequency array
+    type TFIDF = TermToken * float
 
-let termTokenDict = ConcurrentDictionary<string, int>()
-let mutable tokenCount = 0
-let tokenize term : TermToken = termTokenDict.GetOrAdd(term, (fun _ -> tokenCount <- tokenCount + 1; tokenCount))
+    type Document = TermFrequency array
 
-let tokenToTerm token = 
-  let (KeyValue kv) = termTokenDict |> Seq.find (fun (KeyValue kv) -> snd kv = token)
-  fst kv
+    let termTokenDict = ConcurrentDictionary<string, int>()
+    let mutable tokenCount = 0
+    let tokenize term : TermToken = termTokenDict.GetOrAdd(term, (fun _ -> tokenCount <- tokenCount + 1; tokenCount))
 
-let getTermFrequencies sample = 
-  let document = [ sample.Title; sample.Description ] |> String.concat " "
+    let tokenToTerm token = 
+      let (KeyValue kv) = termTokenDict |> Seq.find (fun (KeyValue kv) -> snd kv = token)
+      fst kv
+
+    let getTermFrequencies sample = 
+      let document = [ sample.Title; sample.Description ] |> String.concat " "
   
-  let grams = 
-    nGrams 1 (document.ToLowerInvariant() |> splitOnSpaces)
-    |> Seq.map tokenize
-    |> Array.ofSeq
+      let grams = 
+        nGrams 1 (document.ToLowerInvariant() |> splitOnSpaces)
+        |> Seq.map tokenize
+        |> Array.ofSeq
   
-  let gramSet = Set.ofArray grams
+      let gramSet = Set.ofArray grams
   
-  let frequency g = 
-    g, 
-    grams
-    |> Seq.where (fun w -> w = g)
-    |> Seq.length
-  gramSet
-  |> Seq.map frequency
-  |> Array.ofSeq
+      let frequency g = 
+        g, 
+        grams
+        |> Seq.where (fun w -> w = g)
+        |> Seq.length
+      gramSet
+      |> Seq.map frequency
+      |> Array.ofSeq
 
-let getDocumentFrequency (documents : Document array) term = 
-  documents
-  |> PSeq.filter (Array.exists (fun (t, _) -> t = term))
-  |> PSeq.length
+    let getDocumentFrequency (documents : Document array) term = 
+      documents
+      |> PSeq.filter (Array.exists (fun (t, _) -> t = term))
+      |> PSeq.length
 
-let inverseDocumentFrequency sampleCount docFrequency = Math.Log(float sampleCount / (float docFrequency + 1.0))
+    let inverseDocumentFrequency sampleCount docFrequency = Math.Log(float sampleCount / (float docFrequency + 1.0))
