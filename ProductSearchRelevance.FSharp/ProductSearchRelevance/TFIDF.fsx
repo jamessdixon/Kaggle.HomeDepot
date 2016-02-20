@@ -9,7 +9,7 @@
 
 open FSharp.Collections.ParallelSeq
 open System.Collections.Concurrent
-open TFIDF
+open HomeDepot.TFIDF
 
 let trainSamples = CsvData.getTrainSamples()
 let testSamples = CsvData.getTestSamples()

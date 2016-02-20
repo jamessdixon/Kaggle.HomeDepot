@@ -1,4 +1,4 @@
-﻿
+
 #r "../packages/Accord/lib/net40/Accord.dll"
 #r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
 #r "../packages/Accord.Math/lib/net40/Accord.Math.dll"
@@ -153,5 +153,4 @@ let outputPath = __SOURCE_DIRECTORY__ + @"../../data/benchmark_submission_FSharp
 File.WriteAllLines(outputPath, "id,relevance" :: submission)
 
 printfn "Finished outputing file..."
-
 

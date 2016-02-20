@@ -1,5 +1,4 @@
-﻿
-#I @"../packages/"
+﻿#I @"../packages/"
 #r "Accord/lib/net40/Accord.dll"
 #r "FSharp.Data/lib/net40/FSharp.Data.dll"
 #r "Accord.Math/lib/net40/Accord.Math.dll"

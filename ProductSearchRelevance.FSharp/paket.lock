@@ -26,6 +26,7 @@ NUGET
       AForge.Genetic (>= 2.2.5)
       AForge.Math (>= 2.2.5)
     alglibnet2 (0.0.0)
+    FParsec (1.0.2)
     FSharp.Collections.ParallelSeq (1.0.2)
     FSharp.Data (2.2.5)
     FuzzyString (1.0.0)

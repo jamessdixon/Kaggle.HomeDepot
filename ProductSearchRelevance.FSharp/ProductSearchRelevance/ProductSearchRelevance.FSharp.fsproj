@@ -61,6 +61,7 @@
   <ItemGroup>
     <Compile Include="Model.fsi" />
     <Compile Include="Model.fs" />
+    <Compile Include="Features.fs" />
     <Compile Include="Dimensions.fs" />
     <Compile Include="StringUtils.fs" />
     <Compile Include="CsvData.fs" />
@@ -76,6 +77,7 @@
     <None Include="accordNeuralNetwork.fsx" />
     <Content Include="paket.references" />
     <None Include="Logistic.fsx" />
+    <None Include="champion.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Accord.Neuro">
@@ -138,6 +140,22 @@
       <ItemGroup>
         <Reference Include="alglibnet2">
           <HintPath>..\packages\alglibnet2\lib\alglibnet2.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
+      <ItemGroup>
+        <Reference Include="FParsec">
+          <HintPath>..\packages\FParsec\lib\net40-client\FParsec.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+        <Reference Include="FParsecCS">
+          <HintPath>..\packages\FParsec\lib\net40-client\FParsecCS.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

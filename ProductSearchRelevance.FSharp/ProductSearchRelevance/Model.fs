@@ -48,7 +48,7 @@ module Model =
     [<Literal>]
     let attributesPath = @"../data/attributes.csv"
     [<Literal>]
-    let productsPath =  @"../data/product_descriptions.csv"
+    let productsPath =  @"..\data\product_descriptions.csv"
 
     [<Literal>]
     let submissionPath =  @"../data/"

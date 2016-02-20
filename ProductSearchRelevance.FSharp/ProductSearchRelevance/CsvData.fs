@@ -1,60 +1,63 @@
-﻿module CsvData
+﻿namespace HomeDepot
 
-type Sample = 
-  { Id : int
-    ProductId : int
-    Title : string
-    Description : string
-    Query : string }
+[<RequireQualifiedAccess>]
+module CsvData =
 
-open FSharp.Data
+    type Sample = 
+      { Id : int
+        ProductId : int
+        Title : string
+        Description : string
+        Query : string }
 
-type Train = CsvProvider< "../data/train.csv" >
-type Products = CsvProvider< "../data/product_descriptions.csv" >
-type Attributes = CsvProvider< "../data/attributes.csv" >
-type Test = CsvProvider< "../data/test.csv" >
+    open FSharp.Data
 
-let attributes = Attributes.GetSample()
+    type Train = CsvProvider< "../data/train.csv" >
+    type Products = CsvProvider< "../data/product_descriptions.csv" >
+    type Attributes = CsvProvider< "../data/attributes.csv" >
+    type Test = CsvProvider< "../data/test.csv" >
 
-let getAttributeMap() = 
-  printfn "Building Product Attribute map..."
-  attributes.Rows
-  |> Seq.map (fun r -> r.Product_uid, r.Name, r.Value)
-  |> Seq.groupBy (fun (i, _, _) -> i)
-  |> Map.ofSeq
+    let attributes = Attributes.GetSample()
 
-let products = Products.GetSample()
+    let getAttributeMap() = 
+      printfn "Building Product Attribute map..."
+      attributes.Rows
+      |> Seq.map (fun r -> r.Product_uid, r.Name, r.Value)
+      |> Seq.groupBy (fun (i, _, _) -> i)
+      |> Map.ofSeq
 
-let productDescMap = 
-  lazy (printfn "Building Product Description map..."
-        products.Rows
-        |> Seq.map (fun pd -> pd.Product_uid, pd.Product_description)
-        |> Map.ofSeq)
+    let products = Products.GetSample()
 
-let inline productDescription uid = productDescMap.Value |> Map.find uid
+    let productDescMap = 
+      lazy (printfn "Building Product Description map..."
+            products.Rows
+            |> Seq.map (fun pd -> pd.Product_uid, pd.Product_description)
+            |> Map.ofSeq)
 
-let sample id productId title query = 
-  { Id = id
-    ProductId = productId
-    Title = title
-    Description = productDescription productId
-    Query = query }
+    let inline productDescription uid = productDescMap.Value |> Map.find uid
 
-let train = Train.GetSample()
+    let sample id productId title query = 
+      { Id = id
+        ProductId = productId
+        Title = title
+        Description = productDescription productId
+        Query = query }
 
-let getTrainSamples() = 
-  train.Rows
-  |> Seq.map (fun r -> sample r.Id r.Product_uid r.Product_title r.Search_term)
-  |> Array.ofSeq
+    let train = Train.GetSample()
 
-let getTrainOutput() = 
-  train.Rows
-  |> Seq.map (fun t -> float t.Relevance)
-  |> Array.ofSeq
+    let getTrainSamples() = 
+      train.Rows
+      |> Seq.map (fun r -> sample r.Id r.Product_uid r.Product_title r.Search_term)
+      |> Array.ofSeq
 
-let test = Test.GetSample()
+    let getTrainOutput() = 
+      train.Rows
+      |> Seq.map (fun t -> float t.Relevance)
+      |> Array.ofSeq
 
-let getTestSamples() = 
-  test.Rows
-  |> Seq.map (fun r -> sample r.Id r.Product_uid r.Product_title r.Search_term)
-  |> Array.ofSeq
+    let test = Test.GetSample()
+
+    let getTestSamples() = 
+      test.Rows
+      |> Seq.map (fun r -> sample r.Id r.Product_uid r.Product_title r.Search_term)
+      |> Array.ofSeq
