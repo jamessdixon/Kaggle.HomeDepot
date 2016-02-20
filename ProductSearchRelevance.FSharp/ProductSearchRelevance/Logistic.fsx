@@ -6,6 +6,7 @@ open HomeDepot.Model
 
 #r @"FParsec/lib/net40-client/FParsecCS.dll"
 #r @"FParsec/lib/net40-client/FParsec.dll"
+#r @"StemmersNet/lib/net20/StemmersNet.dll"
 #load "Features.fs"
 open HomeDepot.Features
 

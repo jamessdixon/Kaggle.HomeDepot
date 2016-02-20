@@ -3,6 +3,8 @@
 #load "CsvData.fs"
 #load "Dimensions.fs"
 
+open HomeDepot
+
 // NOTE the train target variable is an average of at least 3 human raters. It could be more than 3.
 
 let distribution = 
@@ -91,9 +93,11 @@ train
     ws.Length <> (ws |> Array.distinct |> Array.length))
 |> Seq.length
 
-#r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsecCS.dll"
-#r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsec.dll"
+#r @"FParsec\lib\net40-client\FParsecCS.dll"
+#r @"FParsec\lib\net40-client\FParsec.dll"
+#r @"StemmersNet\lib\net20\StemmersNet.dll"
 #load "Model.fs"
+
 #load "Features.fs"
 
 open HomeDepot.Model

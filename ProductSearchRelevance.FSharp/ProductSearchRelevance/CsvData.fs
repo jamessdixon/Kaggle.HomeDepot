@@ -1,5 +1,6 @@
 ﻿namespace HomeDepot
 
+[<RequireQualifiedAccess>]
 module CsvData =
 
     type Sample = 

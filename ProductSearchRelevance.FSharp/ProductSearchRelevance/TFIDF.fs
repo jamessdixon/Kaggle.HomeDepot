@@ -2,7 +2,7 @@
 
 module TFIDF =
 
-    open CsvData
+    open HomeDepot
     open FSharp.Collections.ParallelSeq
     open StringUtils
     open System
@@ -29,7 +29,7 @@ module TFIDF =
       let (KeyValue kv) = termTokenDict |> Seq.find (fun (KeyValue kv) -> snd kv = token)
       fst kv
 
-    let getTermFrequencies sample = 
+    let getTermFrequencies (sample:CsvData.Sample) = 
       let document = [ sample.Title; sample.Description ] |> String.concat " "
   
       let grams = 

@@ -4,7 +4,7 @@
 #load "Model.fs"
 open HomeDepot.Model
 
-#r @"StemmersNet\lib\net20\StemmersNet.dll"
+#r @"StemmersNet/lib/net20/StemmersNet.dll"
 #r @"FParsec/lib/net40-client/FParsecCS.dll"
 #r @"FParsec/lib/net40-client/FParsec.dll"
 #load "Features.fs"
@@ -104,33 +104,6 @@ let ``search and title last words match`` : FeatureLearner =
                 obs.Product.Title
                 |> splitBy ' ' 
             if isMatch search.[search.Length-1] title.[title.Length-1] then 1. else 0.
-
-
-(*
-9639
-20954
-0
-0
-29330
-30463
-29791
-0
-0
-0
-0
-2
-2
-0
-19
-8
-4
-1
-11
-168
-0
-3
-1
-*)
 
 #r "alglibnet2/lib/alglibnet2.dll"
 

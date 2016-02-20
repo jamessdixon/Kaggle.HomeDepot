@@ -1,15 +1,14 @@
 ﻿namespace HomeDepot
 
-open CsvData
-
 module Core =
 
     open System
+    open HomeDepot
 
     type Quality = float
-    type Example = Sample * Quality
+    type Example = CsvData.Sample * Quality
 
-    type Predictor = Sample array -> Quality array
+    type Predictor = CsvData.Sample array -> Quality array
     
     type AttributeMap = Map<int, seq<int * string * string>>
 
@@ -34,8 +33,8 @@ module Core =
     // TODO: k-fold
     let evaluate (learn:Learn) =
 
-        let trainSamples = getTrainSamples()
-        let trainOutput = getTrainOutput()
+        let trainSamples = CsvData.getTrainSamples()
+        let trainOutput = CsvData.getTrainOutput()
 
         // partition training data
         let scoredTrainSamples = Array.zip trainSamples trainOutput
@@ -48,7 +47,7 @@ module Core =
         printfn "%d training samples, %d validation samples" trainingSamples.Length validationSamples.Length
         
         // get a trained model for prediction
-        let attribMap = getAttributeMap()
+        let attribMap = CsvData.getAttributeMap()
         let predictor = learn trainingSamples attribMap
 
         // calculate RMSE for validation sample predictions
@@ -57,14 +56,14 @@ module Core =
 
     let submission (learn:Learn) =
         // get a trained model for prediction
-        let trainSamples = getTrainSamples()
-        let trainOutput = getTrainOutput()
+        let trainSamples = CsvData.getTrainSamples()
+        let trainOutput = CsvData.getTrainOutput()
         let trainingSamples = Array.zip trainSamples trainOutput
-        let attribMap = getAttributeMap()
+        let attribMap = CsvData.getAttributeMap()
         let predictor = learn trainingSamples attribMap
         
         // make predicitions on test samples
-        let testSamples = getTestSamples()
+        let testSamples = CsvData.getTestSamples()
         let predictions = predictor testSamples
 
         // format output

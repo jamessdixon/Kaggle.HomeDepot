@@ -1,5 +1,4 @@
-﻿
-#I @"../packages/"
+﻿#I @"../packages/"
 
 #r "Accord/lib/net45/Accord.dll"
 #r "FSharp.Data/lib/net40/FSharp.Data.dll"
@@ -21,17 +20,20 @@ open System
 open System.IO
 open System.Text
 open System.Text.RegularExpressions
+open System.Collections.Concurrent
+open FSharp.Collections.ParallelSeq
+
 open FSharp.Data
 open Accord.Statistics.Models.Regression.Linear
 open Iveonik.Stemmers
-open FSharp.Collections.ParallelSeq
-open System.Collections.Concurrent
-open HomeDepot.Core
 open AForge.Neuro
 open Accord.Neuro
 open Accord.Neuro.Learning
 open Accord.Statistics
 open Accord
+
+open HomeDepot
+open HomeDepot.Core
 
 let sanitizeCharacter characterToClean (stringBuilder:StringBuilder) =
     match characterToClean with

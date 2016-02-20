@@ -17,8 +17,9 @@
 open System
 open System.Text.RegularExpressions
 open FSharp.Collections.ParallelSeq
+open HomeDepot
 open HomeDepot.Core
-open StringUtils
+open HomeDepot.StringUtils
 open System.Text
 open HomeDepot.Dimensions
 
