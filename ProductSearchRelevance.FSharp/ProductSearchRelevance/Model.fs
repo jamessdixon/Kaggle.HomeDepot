@@ -4,6 +4,8 @@ module Model =
 
     open System
     open System.IO
+    open System.Net
+    open System.Text.RegularExpressions
 
     open FSharp.Data
 
@@ -41,6 +43,15 @@ module Model =
     Data loading
     *)
 
+    let inline cleanHtml (txt:string) = WebUtility.HtmlDecode txt
+    let inline lowerCase (txt:string) = txt.ToLowerInvariant()
+
+    let thousandsSeparator = Regex(@"(\d+),(?=\d{3}(\D|$))", RegexOptions.Compiled)
+    let inline cleanThousands (txt:string) =
+        thousandsSeparator.Replace(txt,"$1")
+
+    let inline normalize (txt:string) = txt |> cleanHtml |> cleanThousands
+
     [<Literal>]
     let trainPath = @"../data/train.csv"
     [<Literal>]
@@ -63,7 +74,9 @@ module Model =
         printfn "Loading product descriptions"
 
         AllProducts.GetSample().Rows
-        |> Seq.map (fun row -> row.Product_uid,row.Product_description)
+        |> Seq.map (fun row -> 
+            row.Product_uid, 
+            row.Product_description |> normalize)
         |> dict
 
     let attributes =
@@ -71,7 +84,9 @@ module Model =
         printfn "Loading attributes"
 
         AllAttributes.GetSample().Rows
-        |> Seq.map (fun x -> x.Name, x.Value)
+        |> Seq.map (fun x -> 
+            x.Name |> lowerCase, 
+            x.Value |> normalize)
         |> Seq.groupBy fst
         |> Seq.map (fun (key,values) ->
             key,
@@ -107,7 +122,7 @@ module Model =
             let product =
                 {
                     UID = row.Product_uid
-                    Title = row.Product_title
+                    Title = row.Product_title |> normalize
                     Description = description
                     Attributes = attributes
                 }
@@ -131,7 +146,7 @@ module Model =
             let product =
                 {
                     UID = row.Product_uid
-                    Title = row.Product_title
+                    Title = row.Product_title |> normalize
                     Description = description
                     Attributes = attributes
                 }
@@ -184,7 +199,9 @@ module Model =
         evaluation
         |> List.iter (fun (block,quality) ->
             printfn "  %i: %.3f" block (quality.RMSE))
+
         let overall = evaluation |> Seq.averageBy (fun (_,x) -> x.RMSE)
+
         printfn "Overall: %.3f" overall
         { RMSE = overall }
 
