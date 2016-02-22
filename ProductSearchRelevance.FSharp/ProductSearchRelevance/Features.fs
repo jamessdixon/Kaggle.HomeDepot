@@ -204,6 +204,10 @@ module Features =
             fun obs ->
                 obs.Product.Attributes.Count |> float
 
+    let ``Search terms contain number`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                if obs.SearchTerm |> Seq.exists (Char.IsDigit) then 1. else 0.
 
     
     let ``Taylor / unique words in search terms`` : FeatureLearner =
