@@ -7,10 +7,7 @@ predictor function,
 The model here is simply 'predict the average'
 *)
 
-#I @"../packages/"
-#r "FSharp.Data/lib/net40/FSharp.Data.dll"
-
-#load "Model.fs"
+#load "Dependencies.fsx"
 open HomeDepot.Model
 
 let learner sample = 

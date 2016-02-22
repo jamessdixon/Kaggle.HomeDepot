@@ -4,10 +4,11 @@ module Model =
 
     open System
     open System.IO
-    open System.Net
     open System.Text.RegularExpressions
 
     open FSharp.Data
+
+    open HomeDepot.Utilities
 
     (*
     Prelude: core types
@@ -42,13 +43,6 @@ module Model =
     (*
     Data loading
     *)
-
-    let inline cleanHtml (txt:string) = WebUtility.HtmlDecode txt
-    let inline lowerCase (txt:string) = txt.ToLowerInvariant()
-
-    let thousandsSeparator = Regex(@"(\d+),(?=\d{3}(\D|$))", RegexOptions.Compiled)
-    let inline cleanThousands (txt:string) =
-        thousandsSeparator.Replace(txt,"$1")
 
     let inline normalize (txt:string) = txt |> cleanHtml |> cleanThousands
 

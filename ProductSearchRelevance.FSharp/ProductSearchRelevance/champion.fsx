@@ -1,151 +1,60 @@
-﻿#I @"../packages/"
+﻿#load "Dependencies.fsx"
 
-#r "FSharp.Data/lib/net40/FSharp.Data.dll"
-#load "Model.fs"
 open HomeDepot.Model
-
-#r @"StemmersNet/lib/net20/StemmersNet.dll"
-#r @"FParsec/lib/net40-client/FParsecCS.dll"
-#r @"FParsec/lib/net40-client/FParsec.dll"
-#load "Features.fs"
 open HomeDepot.Features
-
-// TODO fix
-let standardizeMeasures = id
-
-let ``unique words in search terms`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            obs.SearchTerm 
-            |> standardizeMeasures
-            |> splitBy ' ' 
-            |> Array.distinct 
-            |> Array.length 
-            |> float
-
-let ``words in product title`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            obs.Product.Title 
-            |> standardizeMeasures
-            |> splitBy ' ' 
-            |> Array.length 
-            |> float
-
-let ``title length`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            obs.Product.Title.Length
-            |> float
-
-let ``description length`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            obs.Product.Description.Length
-            |> float
-
-let ``forward title match length`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            let search =
-                obs.SearchTerm 
-                |> standardizeMeasures
-                |> splitBy ' '
-            let title = 
-                obs.Product.Title
-                |> standardizeMeasures
-                |> splitBy ' ' 
-            (search,title) ||> Seq.zip |> Seq.takeWhile (fun (a,b) -> isMatch a b) |> Seq.length |> float
-
-let ``backwards title match length`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            let search =
-                obs.SearchTerm 
-                |> standardizeMeasures
-                |> splitBy ' ' 
-                |> Array.rev
-            let title = 
-                obs.Product.Title
-                |> standardizeMeasures
-                |> splitBy ' ' 
-                |> Array.rev
-            (search,title) ||> Seq.zip |> Seq.takeWhile (fun (a,b) -> isMatch a b) |> Seq.length |> float
-
-let ``query title position score`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            let search =
-                obs.SearchTerm 
-                |> standardizeMeasures
-                |> fun x -> x.ToLowerInvariant ()
-                |> splitBy ' ' 
-            let title = 
-                obs.Product.Title
-                |> standardizeMeasures
-                |> fun x -> x.ToLowerInvariant ()
-                |> splitBy ' ' 
-                |> Array.rev
-            let titleLength = float title.Length
-            search 
-            |> Array.map (fun w -> 
-                match (title |> Array.tryFindIndex (isMatch w)) with
-                | None -> 0.
-                | Some(i) -> float i / titleLength)
-            |> Array.average
-
-let ``search and title last words match`` : FeatureLearner =
-    fun sample ->
-        fun obs ->
-            let search =
-                obs.SearchTerm 
-                |> splitBy ' ' 
-            let title = 
-                obs.Product.Title
-                |> splitBy ' ' 
-            if isMatch search.[search.Length-1] title.[title.Length-1] then 1. else 0.
 
 #r "alglibnet2/lib/alglibnet2.dll"
 
 let features = 
     [| 
-        ``unique words in search terms``
-        ``words in product title``
-        
-        ``title length``
-        ``description length``
+        ``Taylor / unique words in search terms``   // 0.528351
+        ``Taylor / search terms length``            // 0.525547
+        ``Taylor / product title length``           // 0.532044 
+        ``Taylor / product description length``     // 0.524044 
+        ``Taylor / attributes not in description``  // 0.513271 
 
-        ``forward title match length``
-        ``backwards title match length``
+        ``Taylor / search terms in title``
+        ``Taylor / search terms in description``
+        ``Taylor / search terms in attributes``     // 0.481416
+//        ``Taylor / search terms matched``
 
-        ``query title position score``
-
-        ``search and title last words match``
+        ``Taylor / matching last search term and last title word``
 
         ``number of attributes``
+
+        ``Taylor / seq matching search terms and title terms``
+        ``Taylor / rev seq matching search terms and title terms``
+
+        ``Taylor / search terms vs title position score`` // 469982
+
+        ``Taylor / % search terms in description``
+        ``Taylor / % search terms in title``
+
+        ``Taylor / product has attributes``
+        ``Taylor / attribute names found in search terms``
+
+        ``Taylor / brand match`` // 0.468703
+
         ``number of non-bullet attributes``
-        ``number of attributes log``
-        ``number of attributes squared``
-        ``no attributes``
 
-        ``words in search terms``
         ``single word search``
+        ``2 - 5 words search``
+        ``10 words or more search`` // 0.467981
 
-        ``brand matches search terms``
-        ``search terms and title % word intersection``
-        ``% search terms in description``
-        ``search terms in title, order weighted``
-        ``search terms in title, reverse order weighted``
-        ``words in title``
-        ``words in description``
-        ``product with no brand``
-
-        ``matching voltage``
-        ``matching wattage``
+//        ``product with no brand``
+//
+//        ``brand matches search terms``
+//
+//        ``matching voltage``
+//        ``matching wattage``
+//        ``matching amperage``
+//        ``matching gallons``
+//        ``matching pounds``
     |]
 
+
 let learner (sample:Example[]) =
-    
+   
     let features = 
         featurizer features (sample |> Array.map snd)
 
@@ -178,7 +87,7 @@ let learner (sample:Example[]) =
 
     predictor
 
-evaluate 10 learner
+//evaluate 10 learner
 
 let test = learner trainset
 

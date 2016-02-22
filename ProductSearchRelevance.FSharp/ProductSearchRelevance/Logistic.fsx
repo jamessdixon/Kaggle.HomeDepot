@@ -1,13 +1,6 @@
-﻿#I @"../packages/"
+﻿#load "Dependencies.fsx"
 
-#r "FSharp.Data/lib/net40/FSharp.Data.dll"
-#load "Model.fs"
 open HomeDepot.Model
-
-#r @"FParsec/lib/net40-client/FParsecCS.dll"
-#r @"FParsec/lib/net40-client/FParsec.dll"
-#r @"StemmersNet/lib/net20/StemmersNet.dll"
-#load "Features.fs"
 open HomeDepot.Features
 
 #r "Accord.Math/lib/net45/Accord.Math.dll"
@@ -20,10 +13,7 @@ open Accord.Statistics.Models.Regression
 let features = 
     [| 
         ``number of attributes``
-        ``number of attributes log``
-        ``number of attributes squared``
         ``no attributes``
-        ``words in search terms``
         ``single word search``
         ``brand matches search terms``
         ``search terms and title % word intersection``
@@ -32,9 +22,6 @@ let features =
         ``search terms in title, reverse order weighted``
         ``words in title``
         ``words in description``
-//        ``product with no brand``
-//        ``matching voltage``
-//        ``matching wattage``
     |]
 
 let learner (sample:Example[]) =
