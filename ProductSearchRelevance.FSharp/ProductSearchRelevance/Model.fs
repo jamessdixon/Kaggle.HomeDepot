@@ -96,7 +96,9 @@ module Model =
         |> Seq.map (fun (uid,rows) ->
             uid,
             rows
-            |> Seq.map( fun row -> row.Name, row.Value)
+            |> Seq.map( fun row -> 
+                row.Name |> lowerCase, 
+                row.Value |> normalize)
             |> Map.ofSeq)
         |> dict
 
