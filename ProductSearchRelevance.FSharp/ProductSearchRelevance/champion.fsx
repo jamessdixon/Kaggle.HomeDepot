@@ -7,49 +7,25 @@ open HomeDepot.Features
 
 let features = 
     [| 
-        ``Taylor / unique words in search terms``   // 0.528351
-        ``Taylor / search terms length``            // 0.525547
-        ``Taylor / product title length``           // 0.532044 
-        ``Taylor / product description length``     // 0.524044 
-        ``Taylor / attributes not in description``  // 0.513271 
-
-        ``Taylor / search terms in title``
-        ``Taylor / search terms in description``
-        ``Taylor / search terms in attributes``     // 0.481416
-//        ``Taylor / search terms matched``
-
-        ``Taylor / matching last search term and last title word``
-
-        ``number of attributes``
-
-        ``Taylor / seq matching search terms and title terms``
-        ``Taylor / rev seq matching search terms and title terms``
-
-        ``Taylor / search terms vs title position score`` // 469982
-
-        ``Taylor / % search terms in description``
-        ``Taylor / % search terms in title``
-
-        ``Taylor / product has attributes``
-        ``Taylor / attribute names found in search terms``
-
-        ``Taylor / brand match`` // 0.468703
-
-        ``number of non-bullet attributes``
-
-        ``single word search``
-        ``2 - 5 words search``
-        ``10 words or more search`` // 0.467981
-
-//        ``product with no brand``
-//
-//        ``brand matches search terms``
-//
-//        ``matching voltage``
-//        ``matching wattage``
-//        ``matching amperage``
-//        ``matching gallons``
-//        ``matching pounds``
+        ``Unique search terms matched in title``        
+        ``% unique search terms matched in title``          // 0.495331 
+        ``Unique search terms matched in description``      // 0.490977
+        ``% unique search terms matched in description``    // 0.490608
+        ``Unique search terms``                             // 0.489939
+        ``Duplicate search terms``                          // 0.489816
+        ``Search terms length``                             // 0.487736
+        ``Brand match in search terms``                     // 0.487680
+        ``First search terms and title words match``        // 0.487031
+        ``Last search terms and first title words match``   // 0.486734
+//        ``Position of search terms in title``               // 0.487033
+        ``Reverse position of search terms in title``       // 0.485098
+//        ``Unmatched search terms in title``
+        ``Longest matching seq between search terms and title``     // 0.484862
+        ``Longest backwards matching seq between search terms and title`` // 0.484120
+        ``Number of non-bullet attributes``                 // 0.478353
+//        ``Number of bullet attributes``                     // 0.484141 !?
+//        ``Number of attributes``                            // 0.478329
+        // re-added duplicate search terms                  // 0.478259
     |]
 
 
@@ -70,14 +46,22 @@ let learner (sample:Example[]) =
     printfn "Training random forest"
 
     let trees = 600
-    let treeTrainSize = 0.1
+    let proportionHeldOut = 0.1
     let sampleSize = sample.Length
     let featureCount = features.Length
+    let featuresUsed = sqrt (float featureCount) |> ceil |> int
 
     let _info, forest, forestReport =
-        alglib.dfbuildrandomdecisionforest(trainInputOutput, sampleSize, featureCount, 1, trees, treeTrainSize)
+        alglib.dfbuildrandomdecisionforestx1(
+            trainInputOutput, 
+            sampleSize, 
+            featureCount, 
+            1, 
+            trees, 
+            featuresUsed, 
+            proportionHeldOut)
     
-    printfn "RDF RMS Error: %f; Out-of-bag RMS Error: %f" forestReport.rmserror forestReport.oobrmserror
+    printfn "Out-of-bag RMS err: %f, avg err: %f" forestReport.oobrmserror forestReport.oobavgerror
 
     let predictor (obs:Observation) = 
         let fs = obs |> extract features
@@ -91,4 +75,4 @@ let learner (sample:Example[]) =
 
 let test = learner trainset
 
-createSubmission learner
+//createSubmission learner
