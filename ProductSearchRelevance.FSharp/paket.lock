@@ -30,4 +30,5 @@ NUGET
     FSharp.Collections.ParallelSeq (1.0.2)
     FSharp.Data (2.2.5)
     FuzzyString (1.0.0)
+    NHunspell (1.2.5554.16953)
     StemmersNet (1.1.1)

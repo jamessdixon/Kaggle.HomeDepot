@@ -78,6 +78,8 @@
     <Content Include="paket.references" />
     <None Include="Logistic.fsx" />
     <None Include="champion.fsx" />
+    <None Include="Thesaurus.fsx" />
+    <None Include="NHunspell.1.2.5554.16953.zip" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Accord.Neuro">
