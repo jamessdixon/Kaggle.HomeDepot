@@ -26,6 +26,9 @@ let features =
 //        ``Number of bullet attributes``                     // 0.484141 !?
 //        ``Number of attributes``                            // 0.478329
         // re-added duplicate search terms                  // 0.478259
+        ``Search terms contain number``                     // 0.474616 after fixing attributes bug
+        ``Close product weight``                            // 0.474410
+        ``Has weight``                                      // 0.473804
     |]
 
 

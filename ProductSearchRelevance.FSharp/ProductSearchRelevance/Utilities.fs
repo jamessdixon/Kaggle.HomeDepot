@@ -27,6 +27,13 @@ module Utilities =
     let cleanWordBoundaries (text:string) = 
         Regex.Replace(text, """[("]*(\w+)[.,;?!)"]*""", "$1", RegexOptions.Compiled)
 
+    // extracting values from measure attributes
+    let numberExtractor = Regex """(\d+.\d+|.d+|\d+)"""    
+    let inline measureOf (text:string) = 
+        cleanThousands text
+        |> numberExtractor.Match
+        |> fun x -> x.Value |> float
+
     (*
     Tokenization
     *)

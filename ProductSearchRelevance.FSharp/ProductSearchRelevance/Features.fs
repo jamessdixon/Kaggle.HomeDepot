@@ -46,6 +46,7 @@ module Features =
     *)
 
     let brandAttribute = "MFG Brand Name".ToLowerInvariant()
+    let productWeight = "product weight (lb.)"
 
     let attributesDescription (obs:Observation) =
         obs.Product.Attributes
@@ -209,7 +210,28 @@ module Features =
             fun obs ->
                 if obs.SearchTerm |> Seq.exists (Char.IsDigit) then 1. else 0.
 
-    
+    let ``Close product weight`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let pounds = findMeasure pPounds obs.SearchTerm
+                match pounds with
+                | None -> 0.
+                | Some(p) ->
+                    let weight = obs.Product.Attributes.TryFind productWeight
+                    match weight with
+                    | None -> 0.
+                    | Some(w) -> 
+                        let w = measureOf w
+                        if ((abs w - p) / p) < 0.2 then 1. else 0.
+
+    let ``Has weight`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                    let weight = obs.Product.Attributes.TryFind productWeight
+                    match weight with
+                    | None -> 0.
+                    | Some(w) -> 1.
+
     let ``Taylor / unique words in search terms`` : FeatureLearner =
         fun sample ->
             fun obs -> 
