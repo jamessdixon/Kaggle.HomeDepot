@@ -17,7 +17,7 @@ let features =
         ``Brand match in search terms``                     // 0.487680
         ``First search terms and title words match``        // 0.487031
         ``Last search terms and first title words match``   // 0.486734
-//        ``Position of search terms in title``               // 0.487033
+        ``Position of search terms in title``               // 0.487033
         ``Reverse position of search terms in title``       // 0.485098
 //        ``Unmatched search terms in title``
         ``Longest matching seq between search terms and title``     // 0.484862
@@ -32,7 +32,7 @@ let features =
         ``Close product length``
         ``Has length``                                      // 0.473695
         ``Number of matching attribute names``              // 0.470940
-//        ``Last search terms and title words match``         // 0.470988, !?
+        ``Last search terms and title words match``         // 0.470988, !?
         ``Search terms specificity``                        // 0.465452 > Kaggle 0.48527
         ``Specificity weighted Search terms match``         // 0.463280
         ``Frequency weighted title match``                  // 0.461863 > Kaggle 0.47902
@@ -86,6 +86,6 @@ let learner (sample:Example[]) =
 
 //evaluate 10 learner
 
-let test = learner trainset
+//let test = learner trainset
 
 createSubmission learner

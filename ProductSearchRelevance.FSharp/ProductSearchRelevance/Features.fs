@@ -293,7 +293,7 @@ module Features =
                 yield! testset |> Seq.map (fun o -> o.SearchTerm) }               
             terms
             |> Seq.distinct
-            |> Seq.map (fun term -> term |> whiteSpaceTokenizer)
+            |> Seq.map (fun term -> term |> whiteSpaceTokenizer |> Array.map stem)
             |> Seq.collect id
             |> Seq.countBy id
             |> Seq.map (fun (word,count) -> word, 1. / float count)
@@ -302,6 +302,7 @@ module Features =
             fun obs ->
                 obs.SearchTerm 
                 |> whiteSpaceTokenizer 
+                |> Array.map stem
                 |> Array.averageBy (fun word -> 
                     match (frequencies.TryFind word) with
                     | Some(x) -> x
@@ -314,16 +315,17 @@ module Features =
                 yield! testset |> Seq.map (fun o -> o.SearchTerm) }
             terms
             |> Seq.distinct
-            |> Seq.map (fun title -> title |> whiteSpaceTokenizer)
+            |> Seq.map (fun title -> title |> whiteSpaceTokenizer|> Array.map stem)
             |> Seq.collect id
             |> Seq.countBy id
             |> Seq.map (fun (word,count) -> word, 1. / float count)
             |> Map.ofSeq
         fun sample ->
             fun obs ->
-                let title = obs.Product.Title |> whiteSpaceTokenizer
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem
                 obs.SearchTerm
-                |> whiteSpaceTokenizer 
+                |> whiteSpaceTokenizer
+                |> Array.map stem 
                 |> Array.averageBy (fun word -> 
                     match (frequencies.TryFind word) with
                     | Some(x) -> if title |> Array.contains word then x else 0.
@@ -332,11 +334,11 @@ module Features =
     let ``Frequency weighted title match`` : FeatureLearner = 
         let frequencies = 
             let titles = seq { 
-                yield! trainset |> Seq.map (fun (l,o) -> o.Product.Title |> lowerCase)
-                yield! testset |> Seq.map (fun o -> o.Product.Title |> lowerCase) }
+                yield! trainset |> Seq.map (fun (l,o) -> o.Product.Title)
+                yield! testset |> Seq.map (fun o -> o.Product.Title) }
             titles
             |> Seq.distinct
-            |> Seq.map (fun title -> title |> whiteSpaceTokenizer)
+            |> Seq.map (fun title -> title |> whiteSpaceTokenizer |> Array.map stem)
             |> Seq.collect id
             |> Seq.countBy id
             |> Seq.map (fun (word,count) -> word, 1. / float count)
@@ -346,6 +348,7 @@ module Features =
                 let title = obs.Product.Title |> whiteSpaceTokenizer
                 obs.SearchTerm 
                 |> whiteSpaceTokenizer 
+                |> Array.map stem
                 |> Array.averageBy (fun word -> 
                     match (frequencies.TryFind word) with
                     | Some(x) -> x
