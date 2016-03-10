@@ -89,11 +89,15 @@ let features attrSelector productBrand (sample:CsvData.Sample) =
     let bwd = Seq.zip uniqueWordsBwd titleWordsBwd |> Seq.takeWhile (fun (u,t) -> u |> isMatch t) |> Seq.length
     let fwd = Seq.zip uniqueWords titleWords |> Seq.takeWhile (fun (u,t) -> u |> isMatch t) |> Seq.length
 
-    let lastWordMatch = (uniqueWords |> Array.last) |> isMatch (titleWords |> Array.last)
+    let lastWord = uniqueWords |> Array.last
+    let lastTitleWords = titleWords |> Array.skip (titleWords.Length / 2)
+    let lastWordMatch = lastTitleWords |> Array.exists (fun t -> isMatch t lastWord)
+
     let wordMatchCount =
         uniqueWords
         |> Seq.filter (fun w -> Seq.concat [titleMatches; descMatches; attrMatches] |> Seq.contains w)
         |> Seq.length
+
     let brandNameMatch =
         match productBrand with // does query contain product brand?
         | Some bn -> if uniqueWords |> Array.exists (containedIn bn) then 1 else 0
@@ -180,4 +184,5 @@ submission rfLearn
 //0.47629 = kaggle rsme; RDF RMS Error: 0.419235; Out-of-bag RMS Error: 0.465694 : last word match
 //?.????? = kaggle rsme; RDF RMS Error: 0.419149; Out-of-bag RMS Error: 0.465570 : longest sequence of query + title matching tail words 1933
 //0.47552 = kaggle rsme; RDF RMS Error: 0.418375; Out-of-bag RMS Error: 0.464791 : longest sequence of query + title matching lead words 2041
-//0.47396 = kaggle rsme; RDF RMS Error: 0.417514; Out-of-bag RMS Error: 0.463789 : standarize measurements in title + query
+//0.47396 = kaggle rsme; RDF RMS Error: 0.417514; Out-of-bag RMS Error: 0.463789 : standardize measurements in title + query
+//0.47385 = kaggle rsme; RDF RMS Error: 0.416792; Out-of-bag RMS Error: 0.462941 : binary feature for last word of query in 2nd half of title
