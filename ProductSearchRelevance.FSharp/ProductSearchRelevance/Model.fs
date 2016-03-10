@@ -44,7 +44,15 @@ module Model =
     Data loading
     *)
 
-    let inline normalize (txt:string) = txt |> cleanHtml |> cleanThousands
+    let inline normalize (txt:string) = preprocess txt
+//        txt 
+//        |> cleanHtml 
+//        |> cleanThousands
+//        |> missingSpace
+//        |> lowerCase
+//        |> letterNumber
+//        |> numberLetter
+//        |> cleanWhitespace
 
     [<Literal>]
     let trainPath = @"../data/train.csv"
@@ -79,7 +87,7 @@ module Model =
 
         AllAttributes.GetSample().Rows
         |> Seq.map (fun x -> 
-            x.Name |> lowerCase, 
+            x.Name |> normalize, 
             x.Value |> normalize)
         |> Seq.groupBy fst
         |> Seq.map (fun (key,values) ->
@@ -97,7 +105,7 @@ module Model =
             uid,
             rows
             |> Seq.map( fun row -> 
-                row.Name |> lowerCase, 
+                row.Name |> normalize, 
                 row.Value |> normalize)
             |> Map.ofSeq)
         |> dict
@@ -126,7 +134,7 @@ module Model =
             row.Relevance,
             {
                 ID = row.Id
-                SearchTerm = row.Search_term
+                SearchTerm = row.Search_term |> normalize
                 Product = product
             })
         |> Seq.toArray
@@ -149,7 +157,7 @@ module Model =
             // Fully constructed observation
             {
                 ID = row.Id
-                SearchTerm = row.Search_term
+                SearchTerm = row.Search_term |> normalize
                 Product = product
             })
         |> Seq.toArray

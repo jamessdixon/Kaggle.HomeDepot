@@ -80,6 +80,8 @@
     <Content Include="paket.references" />
     <None Include="Logistic.fsx" />
     <None Include="champion.fsx" />
+    <None Include="attributesTest.fsx" />
+    <None Include="measures-extraction.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Accord.Neuro">

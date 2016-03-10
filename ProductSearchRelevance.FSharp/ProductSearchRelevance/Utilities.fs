@@ -14,18 +14,94 @@ module Utilities =
     Basic string operations
     *)
 
-    let inline cleanHtml (txt:string) = WebUtility.HtmlDecode txt
-    let inline lowerCase (txt:string) = txt.ToLowerInvariant()
-    
-    let uniques (words:string[]) = words |> Set.ofArray
+    // cleansing
 
+    let inline cleanHtml (txt:string) = WebUtility.HtmlDecode txt
+
+    let inline lowerCase (txt:string) = txt.ToLowerInvariant()
+
+    // insert missing space in "end.Start"
+    let punctuation = Regex(@"(\w)[.,!?;]([A-Z])")
+    let missingSpace (text:string) = punctuation.Replace(text, "$1 $2")
+    
+    // remove , separating thousands
     let thousandsSeparator = Regex(@"(\d+),(?=\d{3}(\D|$))", RegexOptions.Compiled)
     let inline cleanThousands (txt:string) =
         thousandsSeparator.Replace(txt,"$1")
 
-    // strip unlikely characters at the ends of a word split by whitespace
-    let cleanWordBoundaries (text:string) = 
-        Regex.Replace(text, """[("]*(\w+)[.,;?!)"]*""", "$1", RegexOptions.Compiled)
+    let fraction = Regex(@"(\d)\s*/\s*(\d)", RegexOptions.Compiled)
+    let inline cleanFractions (txt:string) = fraction.Replace(txt,"$1/$2")
+
+    let manySpaces = Regex(@"\s+", RegexOptions.Compiled)
+    let inline cleanSpaces (txt:string) = manySpaces.Replace(txt, " ")
+
+    let redundantChars = Regex(@"[\[\]\(\)\+\-&#_ې۪�]")
+    let inline cleanRedundantChars (txt:string) = redundantChars.Replace(txt," ")
+
+    let percent = Regex("([0-9]\s*)%", RegexOptions.Compiled)
+    let cleanPercent (txt:string) = percent.Replace(txt, "$1 percent ")
+
+    let dollars = Regex("([0-9])\s*\$ | \$\s*([0-9])", RegexOptions.Compiled)
+    let cleanDollars (txt:string) = dollars.Replace(txt, "$1 dollars $2")
+
+    let inches = Regex("""([0-9]\s*)("|inches|inch|in\.|in\s)""", RegexOptions.Compiled)
+    let inline cleanInches (txt:string) = inches.Replace(txt,"$1 inches ")
+
+    let feet = Regex("""([0-9]\s*)('|ft|foot|feet)""", RegexOptions.Compiled)
+    let inline cleanFeet (txt:string) = feet.Replace(txt,"$1 feet ")
+
+    let pounds = Regex("""([0-9]\s*)(pounds|pound|lbs|lb)""", RegexOptions.Compiled)
+    let inline cleanPounds (txt:string) = pounds.Replace(txt,"$1 pounds ")
+
+    let gallons = Regex("""([0-9]\s*)(gallons|gallon|gal\s|gal\.)""", RegexOptions.Compiled)
+    let inline cleanGallons (txt:string) = gallons.Replace(txt,"$1 gallons ")
+
+    let ounces = Regex("""([0-9]\s*)(ounces|ounce|oz)""", RegexOptions.Compiled)
+    let inline cleanOunces (txt:string) = ounces.Replace(txt,"$1 ounces ")
+
+    let volts = Regex("""([0-9]\s*)(volts|volt|\sV\s)""", RegexOptions.Compiled)
+    let inline cleanVolts (txt:string) = volts.Replace(txt,"$1 volts ")
+
+    let watts = Regex("""([0-9]\s*)(watts|watt)""", RegexOptions.Compiled)
+    let inline cleanWatts (txt:string) = watts.Replace(txt,"$1 watts ")
+
+    let amperes = Regex("""([0-9]\s*)(ampere|amps|amp\.)""", RegexOptions.Compiled)
+    let inline cleanAmperes (txt:string) = amperes.Replace(txt,"$1 amperes ")
+
+    let multiply = Regex("(\*|x|X)(\s*[0-9])", RegexOptions.Compiled)
+    let inline cleanMultiply (txt:string) = multiply.Replace(txt, " multiply $2")
+
+    let inline letterNumber (text:string) =
+        Regex.Replace(text, "([a-zA-Z])([0-9])", "$1 $2")
+
+    let inline numberLetter (text:string) =
+        Regex.Replace(text, "([0-9])([a-zA-Z])", "$1 $2")
+
+    let trim (txt:string) = txt.Trim ()
+
+    let preprocess =
+        cleanHtml 
+        >> missingSpace 
+        >> lowerCase
+        >> cleanThousands 
+        >> cleanFractions
+        >> cleanRedundantChars
+        >> letterNumber
+        >> numberLetter
+        >> cleanPercent
+        >> cleanDollars
+        >> cleanInches
+        >> cleanFeet
+        >> cleanPounds
+        >> cleanGallons
+        >> cleanOunces
+        >> cleanVolts
+        >> cleanWatts
+        >> cleanMultiply
+        >> cleanSpaces
+        >> trim
+
+    let uniques (words:string[]) = words |> Set.ofArray
 
     // extracting values from measure attributes
     let numberExtractor = Regex """(\d+.\d+|.d+|\d+)"""    
@@ -40,17 +116,41 @@ module Utilities =
     
     type Tokenizer = string -> string[]
 
-    let matchWords = Regex(@"\w+",RegexOptions.Compiled)
-
-    let wordTokenizer : Tokenizer = fun text ->
-        text
-        |> matchWords.Matches
-        |> Seq.cast<Match>
-        |> Seq.map (fun m -> m.Value)
-        |> Array.ofSeq
+//    let matchWords = Regex(@"\w+",RegexOptions.Compiled)
+//
+//    let wordTokenizer : Tokenizer = fun text ->
+//        text
+//        |> matchWords.Matches
+//        |> Seq.cast<Match>
+//        |> Seq.map (fun m -> m.Value)
+//        |> Array.ofSeq
     
     let whiteSpaceTokenizer : Tokenizer = fun text ->
         Regex.Split(text,@"\s+")
+
+    let numbers = Regex(@"(?<float>(\d*\.\d+)|(\d+\.\d*))|(?<integer>\d*)\s+(?<numerator>\d+)\s*\/\s*(?<denominator>\d+)", RegexOptions.Compiled)
+
+    let extractNumbers (text:string) =
+
+        let results = numbers.Matches(text)
+        
+        results
+        |> Seq.cast<Match>
+        |> Seq.map (fun m -> 
+            let flo = m.Groups.["float"].Value
+            if flo <> "" then (float flo)
+            else
+                let lead = m.Groups.["integer"].Value
+                let num = m.Groups.["numerator"].Value
+                let den = m.Groups.["denominator"].Value
+                if lead = "" 
+                then (float num) / (float den)
+                else (float lead) + (float num) / (float den))
+        |> Seq.toList
+
+    let dimensions = Regex @"(\d\s*)[xX](\s*\d)"
+
+    let simplify (text:string) = Regex.Replace(text,@"[^\w]","")
 
     // Breaking malformed sentences in Description
     let pattern = """(^[a-z|0-9]+)[.!?]?([A-Z]\w+)|(^\w+)[.!?]([A-Z]\w+)"""
@@ -173,12 +273,21 @@ module Utilities =
     let spaceOrDash :Parser<unit,unit> =
         (skipChar '-') <|> spaces
 
-    let pFraction : Parser<float,unit> =
+    let pSimpleFraction : Parser<float,unit> =
+        tuple2
+            (pint32 .>> spaces .>> pstring "/" .>> spaces)
+            pint32
+        |>> fun (x,y) -> float x / float y
+
+    let pComplexFraction : Parser<float,unit> =
         tuple3
             (pint32 .>> spaceOrDash)
             (pint32 .>> spaces .>> pstring "/" .>> spaces)
             pint32
         |>> fun (x,y,z) -> float x + float y / float z
+
+    let pMeasure : Parser<float,unit> = pComplexFraction <|> pSimpleFraction <|> pfloat
+        
 
     // basic units / no fractions
 
@@ -187,6 +296,7 @@ module Utilities =
     let pAmps : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "amp")
     let pGallons : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "gal")
     let pPounds : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "lb" <|> pstringCI "pound")
+    let pInches : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "inches" <|> pstringCI "in")
 
     let findMeasure (parser:Parser<float,unit>) (text:string) =
         let last = text.Length - 1

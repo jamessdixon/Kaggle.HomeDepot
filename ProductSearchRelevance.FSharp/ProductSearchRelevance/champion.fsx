@@ -29,6 +29,16 @@ let features =
         ``Search terms contain number``                     // 0.474616 after fixing attributes bug
         ``Close product weight``                            // 0.474410
         ``Has weight``                                      // 0.473804
+        ``Close product length``
+        ``Has length``                                      // 0.473695
+        ``Number of matching attribute names``              // 0.470940
+//        ``Last search terms and title words match``         // 0.470988, !?
+        ``Search terms specificity``                        // 0.465452 > Kaggle 0.48527
+        ``Specificity weighted Search terms match``         // 0.463280
+        ``Frequency weighted title match``                  // 0.461863 > Kaggle 0.47902
+        ``Contains a surface``                              // 0.461150
+        ``Brand mismatch``                                  // 0.461061
+        ``Title contains last search term``                 // 0.457116 - with modified aggressive pre-proc
     |]
 
 
@@ -78,4 +88,4 @@ let learner (sample:Example[]) =
 
 let test = learner trainset
 
-//createSubmission learner
+createSubmission learner

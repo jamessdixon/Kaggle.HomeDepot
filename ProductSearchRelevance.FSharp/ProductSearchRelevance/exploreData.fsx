@@ -54,69 +54,97 @@ let trainTitles = CsvData.train.Rows |> Seq.map (fun r -> r.Product_title, r.Sea
 let lastWord (s:string) = s.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries) |> Array.last
 let sameEnds = trainTitles |> Seq.filter (fun (t,s) -> lastWord t = lastWord s)
 
+#load "Dependencies.fsx"
+open HomeDepot.Model
+open HomeDepot.Utilities
 open FSharp.Data
 
 [<Literal>]
-let attributesPath = @"../data/attributes.csv"
-type AllAttributes = CsvProvider<attributesPath>
-
-let attributesUsage =
-    AllAttributes.GetSample().Rows
-    |> Seq.countBy (fun x -> x.Name)
-    |> Seq.toList
-
-attributesUsage
-|> Seq.filter (fun (_,count) -> count = 1)
-|> Seq.length
-
-attributesUsage
-|> Seq.filter (fun (att,_) -> not (att.Contains("Bullet")))
-|> Seq.sortByDescending snd
-|> Seq.take 100
-|> Seq.toList
-
-// width height
-
-// volt, watt, amps
-
-// gallon?
+let rawAttributesPath = @"../data/attributes.csv"
+type RawAttributes = CsvProvider<rawAttributesPath>
 
 [<Literal>]
 let trainPath = @"../data/train.csv"
+[<Literal>]
+let testPath = @"../data/test.csv"
+[<Literal>]
+let attributesPath = @"../data/attributes.csv"
+[<Literal>]
+let productsPath =  @"..\data\product_descriptions.csv"
 
-type Train = CsvProvider<trainPath>
-let train = Train.GetSample().Rows
+[<Literal>]
+let submissionPath =  @"../data/"
 
-train 
-|> Seq.filter (fun x -> 
-    let ws = x.Search_term.Split([|' '|],System.StringSplitOptions.RemoveEmptyEntries)
-    ws.Length <> (ws |> Array.distinct |> Array.length))
-|> Seq.length
+type Train = CsvProvider<trainPath,Schema=",,,,float">
+type Test = CsvProvider<testPath>
+type AllAttributes = CsvProvider<attributesPath>
+type AllProducts = CsvProvider<productsPath>
 
-#r @"FParsec\lib\net40-client\FParsecCS.dll"
-#r @"FParsec\lib\net40-client\FParsec.dll"
-#r @"StemmersNet\lib\net20\StemmersNet.dll"
-#load "Model.fs"
+let foo =
+    cleanHtml 
+    >> missingSpace 
+    >> lowerCase
+    >> cleanThousands 
+    >> cleanFractions
+    >> cleanRedundantChars
+    >> cleanPercent
+    >> cleanDollars
+    >> cleanInches
+    >> cleanFeet
+    >> cleanPounds
+    >> cleanMultiply
+    >> cleanSpaces
 
-#load "Features.fs"
+Train.GetSample().Rows 
+|> Seq.take 100 
+|> Seq.map (fun x -> x.Search_term, x.Search_term |> preprocess) |> Seq.toList
 
-open HomeDepot.Model
-open HomeDepot.Features
+Train.GetSample().Rows 
+|> Seq.take 100 
+|> Seq.map (fun x -> x.Product_title, x.Product_title |> preprocess) |> Seq.toList
 
-let wattage = ``matching wattage`` (trainset |> Array.map snd)
-trainset |> Seq.map (fun (l,o) -> l, wattage o)
-
-train
-|> Seq.filter (fun x -> x.Search_term.ToLowerInvariant().Contains("volt"))
-|> Seq.length
-
-train
-|> Seq.filter (fun x -> x.Product_title.ToLowerInvariant().Contains("volt"))
-|> Seq.length
+trainset 
+|> Seq.map (fun (_,x) -> x.SearchTerm, x.SearchTerm |> whiteSpaceTokenizer)
+|> Seq.take 50
+|> Seq.iter (printfn "%A")
 
 
-train
-|> Seq.filter (fun x -> x.Search_term.ToLowerInvariant().Contains("watt"))
-|> Seq.length
 
-train |> Seq.length
+
+trainset |> Seq.take 100 |> Seq.map (fun (_,x) -> x.SearchTerm |> stem) |> Seq.iter (printfn "%s")
+
+trainset |> Seq.length
+
+trainset |> Seq.filter (fun (_,x) -> x.SearchTerm.Contains "one") |> Seq.iter (fun (_,x) -> x.SearchTerm |> printfn "%s")
+
+trainset 
+|> Seq.take 100 
+|> Seq.map (fun (l,x) -> x.Product.Title)
+|> Seq.distinct
+|> Seq.iter (printfn "%A")
+
+trainset |> Seq.map (fun (_,x) -> x.Product.Title |> Set.ofSeq) |> Set.unionMany |> Set.iter (printf "%A ")
+
+let searchFor (s:string) =
+    trainset 
+    |> Seq.filter ((fun (_,x) -> x.Product.Title.Contains s)) 
+    |> Seq.take 20 
+    |> Seq.iter (fun (_,x) -> printfn "%s" x.Product.Title)
+    trainset 
+    |> Seq.filter ((fun (_,x) -> x.SearchTerm.Contains s)) 
+    |> Seq.take 20 
+    |> Seq.iter (fun (_,x) -> printfn "%s" x.SearchTerm)
+
+cleanWordBoundaries """ "this" or-that is.it,right 3.5"""
+
+trainset
+|> Seq.map (fun (_,x) -> x.SearchTerm |> lowerCase)
+|> Seq.filter (fun x -> x.Contains("door")) 
+|> Seq.iter (printfn "%s")
+trainset 
+|> Seq.map (fun (_,x) -> x.SearchTerm |> wordTokenizer |> Array.map stem)
+|> Seq.concat
+|> Seq.countBy id
+|> Seq.sortBy snd
+|> Seq.toList
+

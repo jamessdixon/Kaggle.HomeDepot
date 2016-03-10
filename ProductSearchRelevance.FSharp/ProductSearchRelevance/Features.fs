@@ -45,8 +45,9 @@ module Features =
     Working with attribute
     *)
 
-    let brandAttribute = "MFG Brand Name".ToLowerInvariant()
-    let productWeight = "product weight (lb.)"
+    let brandAttribute = "MFG Brand Name" |> preprocess
+    let productWeight = "product weight (lb.)" |> preprocess
+    let productLength = "product length (in.)" |> preprocess
 
     let attributesDescription (obs:Observation) =
         obs.Product.Attributes
@@ -138,7 +139,25 @@ module Features =
                 let word = (obs.Product.Title |> whiteSpaceTokenizer).[0] |> stem
                 if last = word then 1. else 0.
 
-    // weak
+    let ``Last search terms and title words match`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer
+                let lastTerm = terms.[terms.Length - 1] |> stem
+                let words = (obs.Product.Title |> whiteSpaceTokenizer)
+                let lastWord = words.[words.Length - 1] |> stem
+                if lastTerm = lastWord then 1. else 0.
+
+    let ``Title contains last search term`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer
+                let lastTerm = terms.[terms.Length - 1] |> stem
+                let words = (obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.map stem)
+                if words |> Set.contains lastTerm then 1. else 0.
+
+
+    // weak. version from original with title length is weaker
     let ``Position of search terms in title`` : FeatureLearner =
         fun sample ->
             fun obs ->
@@ -152,6 +171,7 @@ module Features =
                     | Some(x) -> float (len-x) / float len)
                 |> Seq.average
 
+    //  version from original with title length is weaker
     let ``Reverse position of search terms in title`` : FeatureLearner =
         fun sample ->
             fun obs ->
@@ -181,6 +201,7 @@ module Features =
                 let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem
                 (terms, title) ||> Seq.zip |> Seq.takeWhile (fun (a,b) -> a = b) |> Seq.length |> float
 
+    // different from original but works better
     let ``Longest backwards matching seq between search terms and title`` : FeatureLearner =
         fun sample ->
             fun obs ->
@@ -205,6 +226,17 @@ module Features =
             fun obs ->
                 obs.Product.Attributes.Count |> float
 
+    let ``Number of matching attribute names`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem |> uniques
+                obs.Product.Attributes
+                |> Seq.filter (fun kv -> 
+                    let keyWords = kv.Key |> whiteSpaceTokenizer |> Array.map stem |> uniques
+                    (Set.intersect keyWords terms).Count > 0)
+                |> Seq.length
+                |> float
+
     let ``Search terms contain number`` : FeatureLearner =
         fun sample ->
             fun obs ->
@@ -222,7 +254,7 @@ module Features =
                     | None -> 0.
                     | Some(w) -> 
                         let w = measureOf w
-                        if ((abs w - p) / p) < 0.2 then 1. else 0.
+                        if ((abs w - p) / p) < 0.25 then 1. else 0.
 
     let ``Has weight`` : FeatureLearner = 
         fun sample ->
@@ -232,6 +264,120 @@ module Features =
                     | None -> 0.
                     | Some(w) -> 1.
 
+    let ``Close product length`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let inches = findMeasure pInches obs.SearchTerm
+                match inches with
+                | None -> 0.
+                | Some(p) ->
+                    let length = obs.Product.Attributes.TryFind productLength
+                    match length with
+                    | None -> 0.
+                    | Some(w) -> 
+                        let w = measureOf w
+                        if ((abs w - p) / p) < 0.25 then 1. else 0.
+
+    let ``Has length`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let length = obs.Product.Attributes.TryFind productLength
+                match length with
+                | None -> 0.
+                | Some(w) -> 1.
+
+    let ``Search terms specificity`` : FeatureLearner = 
+        let frequencies = 
+            let terms = seq {
+                yield! trainset |> Seq.map (fun (l,o) -> o.SearchTerm)
+                yield! testset |> Seq.map (fun o -> o.SearchTerm) }               
+            terms
+            |> Seq.distinct
+            |> Seq.map (fun term -> term |> whiteSpaceTokenizer)
+            |> Seq.collect id
+            |> Seq.countBy id
+            |> Seq.map (fun (word,count) -> word, 1. / float count)
+            |> Map.ofSeq
+        fun sample ->
+            fun obs ->
+                obs.SearchTerm 
+                |> whiteSpaceTokenizer 
+                |> Array.averageBy (fun word -> 
+                    match (frequencies.TryFind word) with
+                    | Some(x) -> x
+                    | None -> 0.)
+
+    let ``Specificity weighted Search terms match`` : FeatureLearner = 
+        let frequencies = 
+            let terms = seq { 
+                yield! trainset |> Seq.map (fun (l,o) -> o.SearchTerm)
+                yield! testset |> Seq.map (fun o -> o.SearchTerm) }
+            terms
+            |> Seq.distinct
+            |> Seq.map (fun title -> title |> whiteSpaceTokenizer)
+            |> Seq.collect id
+            |> Seq.countBy id
+            |> Seq.map (fun (word,count) -> word, 1. / float count)
+            |> Map.ofSeq
+        fun sample ->
+            fun obs ->
+                let title = obs.Product.Title |> whiteSpaceTokenizer
+                obs.SearchTerm
+                |> whiteSpaceTokenizer 
+                |> Array.averageBy (fun word -> 
+                    match (frequencies.TryFind word) with
+                    | Some(x) -> if title |> Array.contains word then x else 0.
+                    | None -> 0.)
+
+    let ``Frequency weighted title match`` : FeatureLearner = 
+        let frequencies = 
+            let titles = seq { 
+                yield! trainset |> Seq.map (fun (l,o) -> o.Product.Title |> lowerCase)
+                yield! testset |> Seq.map (fun o -> o.Product.Title |> lowerCase) }
+            titles
+            |> Seq.distinct
+            |> Seq.map (fun title -> title |> whiteSpaceTokenizer)
+            |> Seq.collect id
+            |> Seq.countBy id
+            |> Seq.map (fun (word,count) -> word, 1. / float count)
+            |> Map.ofSeq
+        fun sample ->
+            fun obs ->
+                let title = obs.Product.Title |> whiteSpaceTokenizer
+                obs.SearchTerm 
+                |> whiteSpaceTokenizer 
+                |> Array.averageBy (fun word -> 
+                    match (frequencies.TryFind word) with
+                    | Some(x) -> x
+                    | None -> 0.)
+
+    let ``Contains a surface`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if dimensions.IsMatch(obs.SearchTerm)
+                then 1. else 0.
+
+    let ``Brand mismatch`` : FeatureLearner = 
+        let brands = 
+            seq { 
+                yield! trainset |> Seq.map (fun (l,o) -> o.Product.Attributes.TryFind brandAttribute)
+                yield! testset |> Seq.map (fun o -> o.Product.Attributes.TryFind brandAttribute) }
+            |> Seq.choose id
+            |> Seq.map (simplify >> lowerCase)
+            |> Seq.distinct
+            |> Set.ofSeq
+        fun sample ->
+            fun obs ->
+                let brand = obs.Product.Attributes.TryFind brandAttribute
+                match brand with
+                | None -> 0.
+                | Some(b) ->
+                    let brandName = (simplify >> lowerCase) b
+                    let terms = (simplify >> lowerCase) obs.SearchTerm
+                    let inSearch = brands |> Set.filter (fun x -> terms.Contains x)
+                    if (inSearch |> Set.contains brandName) then 0. else 1.
+
+                   
     let ``Taylor / unique words in search terms`` : FeatureLearner =
         fun sample ->
             fun obs -> 
@@ -300,8 +446,8 @@ module Features =
     let ``Taylor / search terms in title`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let title = obs.Product.Title |> wordTokenizer |> uniques |> Set.map stem
-                let terms = obs.SearchTerm |> wordTokenizer |> uniques |> Set.map stem
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 Set.intersect title terms |> Set.count |> float
 //                let title = obs.Product.Title |> standardizeMeasures
 //                obs.SearchTerm
@@ -315,8 +461,8 @@ module Features =
     let ``Taylor / % search terms in title`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let title = obs.Product.Title |> wordTokenizer |> uniques |> Set.map stem
-                let terms = obs.SearchTerm |> wordTokenizer |> uniques |> Set.map stem
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 let inter = Set.intersect title terms |> Set.count |> float
                 inter / float terms.Count
 
@@ -336,8 +482,8 @@ module Features =
     let ``Taylor / search terms in description`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let desc = obs.Product.Description |> wordTokenizer |> uniques |> Set.map stem
-                let terms = obs.SearchTerm |> wordTokenizer |> uniques |> Set.map stem
+                let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 Set.intersect desc terms |> Set.count |> float
 
 //                let description = 
@@ -355,8 +501,8 @@ module Features =
     let ``Taylor / % search terms in description`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let desc = obs.Product.Description |> wordTokenizer |> uniques |> Set.map stem
-                let terms = obs.SearchTerm |> wordTokenizer |> uniques |> Set.map stem
+                let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 let inter = Set.intersect desc terms |> Set.count |> float
                 inter / float terms.Count
 //                let description = 
@@ -378,9 +524,9 @@ module Features =
     let ``Taylor / search terms in attributes`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let desc = obs.Product.Description |> wordTokenizer |> uniques |> Set.map stem
-                let terms = obs.SearchTerm |> wordTokenizer |> uniques |> Set.map stem
-                let atts = attributesDescription obs |> String.concat " " |> wordTokenizer |> uniques |> Set.map stem
+                let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let atts = attributesDescription obs |> String.concat " " |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 Set.intersect desc terms |> Set.intersect atts |> Set.count |> float
 //
 //
@@ -555,7 +701,7 @@ module Features =
     let ``single word search`` : FeatureLearner =
         fun sample ->
             fun obs ->
-                wordTokenizer obs.SearchTerm
+                whiteSpaceTokenizer obs.SearchTerm
                 |> uniques
                 |> Set.count
                 |> fun x -> if x = 1 then 1. else 0.
@@ -563,7 +709,7 @@ module Features =
     let ``2 - 5 words search`` : FeatureLearner =
         fun sample ->
             fun obs ->
-                wordTokenizer obs.SearchTerm
+                whiteSpaceTokenizer obs.SearchTerm
                 |> uniques
                 |> Set.count
                 |> fun x -> if (x > 1 && x < 6) then 1. else 0.
@@ -571,7 +717,7 @@ module Features =
     let ``10 words or more search`` : FeatureLearner =
         fun sample ->
             fun obs ->
-                wordTokenizer obs.SearchTerm
+                whiteSpaceTokenizer obs.SearchTerm
                 |> uniques
                 |> Set.count
                 |> fun x -> if (x > 10) then 1. else 0.
@@ -597,8 +743,8 @@ module Features =
     let ``search terms and title % word intersection`` : FeatureLearner =
         fun sample ->
             fun obs ->
-                let terms = obs.SearchTerm |> lowerCase |> wordTokenizer |> uniques |> Set.map stem
-                let title = obs.Product.Title |> lowerCase |> wordTokenizer |> uniques |> Set.map stem
+                let terms = obs.SearchTerm |> lowerCase |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let title = obs.Product.Title |> lowerCase |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 let longest = max terms.Count title.Count
                 let intersect = Set.intersect terms title |> Set.count
                 float intersect / float longest
@@ -606,17 +752,17 @@ module Features =
     let ``words in title`` : FeatureLearner =
         fun sample ->
             fun obs ->
-                obs.Product.Title |> wordTokenizer |> uniques |> Set.count |> float
+                obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.count |> float
 
     let ``words in description`` : FeatureLearner =
         fun sample ->
             fun obs ->
-                obs.Product.Description |> wordTokenizer |> uniques |> Set.count |> float
+                obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.count |> float
 
     let ``% search terms in description`` : FeatureLearner =
         fun sample ->
             fun obs ->
-                let terms = obs.SearchTerm |> lowerCase |> wordTokenizer |> uniques
+                let terms = obs.SearchTerm |> lowerCase |> whiteSpaceTokenizer |> uniques
                 let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques
                 let count =
                     terms
