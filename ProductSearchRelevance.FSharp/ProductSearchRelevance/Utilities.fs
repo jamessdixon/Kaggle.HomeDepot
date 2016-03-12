@@ -23,6 +23,8 @@ module Utilities =
     // insert missing space in "end.Start"
     let punctuation = Regex(@"(\w)[.,!?;]([A-Z])")
     let missingSpace (text:string) = punctuation.Replace(text, "$1 $2")
+
+    let cleanPunctuation (text:string) = Regex(@"[,!?;:]@").Replace(text, " 2")
     
     // remove , separating thousands
     let thousandsSeparator = Regex(@"(\d+),(?=\d{3}(\D|$))", RegexOptions.Compiled)
@@ -68,8 +70,8 @@ module Utilities =
     let amperes = Regex("""([0-9]\s*)(ampere|amps|amp\.)""", RegexOptions.Compiled)
     let inline cleanAmperes (txt:string) = amperes.Replace(txt,"$1 amperes ")
 
-    let multiply = Regex("(\*|x|X)(\s*[0-9])", RegexOptions.Compiled)
-    let inline cleanMultiply (txt:string) = multiply.Replace(txt, " multiply $2")
+    let multiply = Regex("([^a-zA-Z])(\*|x|X)(\s*[0-9])", RegexOptions.Compiled)
+    let inline cleanMultiply (txt:string) = multiply.Replace(txt, "$1 multiply $3")
 
     let inline letterNumber (text:string) =
         Regex.Replace(text, "([a-zA-Z])([0-9])", "$1 $2")
@@ -79,6 +81,9 @@ module Utilities =
 
     let inline cleanNonFractions (text:string) =
         Regex.Replace(text, "([^0-9])\/([^0-9])", "$1 $2")
+
+    let inline cleanNonDigits (text:string) =
+        Regex.Replace(text, "([^0-9])\.([^0-9])", "$1 $2")
 
     let trim (txt:string) = txt.Trim ()
 
@@ -90,6 +95,8 @@ module Utilities =
         >> cleanFractions
         >> cleanNonFractions
         >> cleanRedundantChars
+        >> cleanNonDigits
+        >> cleanPunctuation
         >> letterNumber
         >> numberLetter
         >> cleanPercent

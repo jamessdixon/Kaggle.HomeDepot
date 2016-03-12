@@ -82,7 +82,7 @@ type AllProducts = CsvProvider<productsPath>
 
 Train.GetSample().Rows 
 |> Seq.take 100 
-|> Seq.map (fun x -> x.Search_term, x.Search_term |> preprocess) |> Seq.toList
+|> Seq.map (fun x -> x.Product_title, x.Product_title |> preprocess) |> Seq.toList
 
 Train.GetSample().Rows 
 |> Seq.collect (fun x -> x.Search_term |> preprocess |> whiteSpaceTokenizer |> uniques)
@@ -97,11 +97,32 @@ AllAttributes.GetSample().Rows
 |> Seq.groupBy (fun x -> x.Name)
 
 trainset
+|> Seq.filter (fun (a,b) -> b.SearchTerm.Contains "pounds")
+
+let number = Regex(@"(\d+)")
+let check (t:string) = number.Matches t |> Seq.cast<Match> |> Seq.map (fun x -> x.Value |> float)
+
+trainset
 |> Seq.map (fun (a,b) -> 
     b.Product.Attributes 
     |> Seq.filter (fun kv -> kv.Key.Contains "product type")
     |> Seq.map (fun kv -> kv.Value))
 
+trainset
+|> Seq.map (fun (a,b) ->
+    b.Product.Title)
+|> Seq.filter (fun x -> x.Contains ".")
+|> Seq.truncate 500
+|> Seq.toList
+let r = Regex("(cu\.|cubic)\s*ft\.")
+let test (t:string) = r.Replace(t,"cubicfeet")
+test "3 cu ft"
+
+Train.GetSample().Rows 
+|> Seq.filter (fun x -> x.Search_term.Contains "sq.")
+|> Seq.map (fun x -> x.Search_term |> test)
+|> Seq.take 20
+|> Seq.toList
 
 Train.GetSample().Rows 
 |> Seq.filter (fun x -> x.Search_term |> preprocess |> fun x -> x.Contains " t ")
