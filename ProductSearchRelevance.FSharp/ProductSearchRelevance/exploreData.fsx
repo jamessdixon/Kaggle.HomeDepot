@@ -80,25 +80,34 @@ type Test = CsvProvider<testPath>
 type AllAttributes = CsvProvider<attributesPath>
 type AllProducts = CsvProvider<productsPath>
 
-let foo =
-    cleanHtml 
-    >> missingSpace 
-    >> lowerCase
-    >> cleanThousands 
-    >> cleanFractions
-    >> cleanRedundantChars
-    >> cleanPercent
-    >> cleanDollars
-    >> cleanInches
-    >> cleanFeet
-    >> cleanPounds
-    >> cleanMultiply
-    >> cleanSpaces
-
 Train.GetSample().Rows 
 |> Seq.take 100 
 |> Seq.map (fun x -> x.Search_term, x.Search_term |> preprocess) |> Seq.toList
 
+Train.GetSample().Rows 
+|> Seq.collect (fun x -> x.Search_term |> preprocess |> whiteSpaceTokenizer |> uniques)
+|> Seq.countBy id
+|> Seq.sortBy snd
+|> Seq.skip 1000
+|> Seq.take 100
+|> Seq.toList
+
+AllAttributes.GetSample().Rows
+|> Seq.filter (fun x -> x.Name.Contains "Product Type")
+|> Seq.groupBy (fun x -> x.Name)
+
+trainset
+|> Seq.map (fun (a,b) -> 
+    b.Product.Attributes 
+    |> Seq.filter (fun kv -> kv.Key.Contains "product type")
+    |> Seq.map (fun kv -> kv.Value))
+
+
+Train.GetSample().Rows 
+|> Seq.filter (fun x -> x.Search_term |> preprocess |> fun x -> x.Contains " t ")
+|> Seq.iter (fun x -> x.Search_term  |> printfn "%s")
+
+("abc").StartsWith("a")
 Train.GetSample().Rows 
 |> Seq.take 100 
 |> Seq.map (fun x -> x.Product_title, x.Product_title |> preprocess) |> Seq.toList

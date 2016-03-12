@@ -58,7 +58,7 @@ module Utilities =
 
     let ounces = Regex("""([0-9]\s*)(ounces|ounce|oz)""", RegexOptions.Compiled)
     let inline cleanOunces (txt:string) = ounces.Replace(txt,"$1 ounces ")
-
+    
     let volts = Regex("""([0-9]\s*)(volts|volt|\sV\s)""", RegexOptions.Compiled)
     let inline cleanVolts (txt:string) = volts.Replace(txt,"$1 volts ")
 
@@ -77,6 +77,9 @@ module Utilities =
     let inline numberLetter (text:string) =
         Regex.Replace(text, "([0-9])([a-zA-Z])", "$1 $2")
 
+    let inline cleanNonFractions (text:string) =
+        Regex.Replace(text, "([^0-9])\/([^0-9])", "$1 $2")
+
     let trim (txt:string) = txt.Trim ()
 
     let preprocess =
@@ -85,6 +88,7 @@ module Utilities =
         >> lowerCase
         >> cleanThousands 
         >> cleanFractions
+        >> cleanNonFractions
         >> cleanRedundantChars
         >> letterNumber
         >> numberLetter

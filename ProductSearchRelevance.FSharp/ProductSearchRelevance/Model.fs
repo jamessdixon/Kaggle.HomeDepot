@@ -37,22 +37,13 @@ module Model =
     type Learner = Example [] -> Predictor
 
     type Quality = {
-        RMSE:float
-        }
+        RMSE:float }
 
     (*
     Data loading
     *)
 
     let inline normalize (txt:string) = preprocess txt
-//        txt 
-//        |> cleanHtml 
-//        |> cleanThousands
-//        |> missingSpace
-//        |> lowerCase
-//        |> letterNumber
-//        |> numberLetter
-//        |> cleanWhitespace
 
     [<Literal>]
     let trainPath = @"../data/train.csv"
