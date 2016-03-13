@@ -245,16 +245,20 @@ module Features =
     let ``Close product weight`` : FeatureLearner = 
         fun sample ->
             fun obs ->
-                let pounds = findMeasure pPounds obs.SearchTerm
-                match pounds with
+                let weight = obs.Product.Attributes.TryFind productWeight
+                match weight with
                 | None -> 0.
-                | Some(p) ->
-                    let weight = obs.Product.Attributes.TryFind productWeight
-                    match weight with
-                    | None -> 0.
-                    | Some(w) -> 
-                        let w = measureOf w
-                        if ((abs w - p) / p) < 0.25 then 1. else 0.
+                | Some(weightInfo) ->
+                    let ws = extractBasicNumbers weightInfo
+                    match ws with
+                    | [] -> 0.
+                    | w::_ ->
+                        let ns = extractBasicNumbers obs.SearchTerm
+                        match ns with
+                        | [] -> 0.
+                        | _ ->
+                            let best = ns |> Seq.minBy (fun n -> abs (n-w) / n)
+                            if best < 0.25 then 1. else 0.
 
     let ``Has weight`` : FeatureLearner = 
         fun sample ->
@@ -267,16 +271,20 @@ module Features =
     let ``Close product length`` : FeatureLearner = 
         fun sample ->
             fun obs ->
-                let inches = findMeasure pInches obs.SearchTerm
-                match inches with
+                let length = obs.Product.Attributes.TryFind productLength
+                match length with
                 | None -> 0.
-                | Some(p) ->
-                    let length = obs.Product.Attributes.TryFind productLength
-                    match length with
-                    | None -> 0.
-                    | Some(w) -> 
-                        let w = measureOf w
-                        if ((abs w - p) / p) < 0.25 then 1. else 0.
+                | Some(lengthInfo) ->
+                    let ls = extractBasicNumbers lengthInfo
+                    match ls with
+                    | [] -> 0.
+                    | l::_ ->
+                        let ns = extractBasicNumbers obs.SearchTerm
+                        match ns with
+                        | [] -> 0.
+                        | _ ->
+                            let best = ns |> Seq.minBy (fun n -> abs (n-l) / n)
+                            if best < 0.25 then 1. else 0.
 
     let ``Has length`` : FeatureLearner = 
         fun sample ->
@@ -379,6 +387,40 @@ module Features =
                     let terms = (simplify >> lowerCase) obs.SearchTerm
                     let inSearch = brands |> Set.filter (fun x -> terms.Contains x)
                     if (inSearch |> Set.contains brandName) then 0. else 1.
+
+    let ``Product type match`` : FeatureLearner = 
+        // extract word weights for each product type category
+        let types = 
+            attributes 
+            |> Map.filter (fun key value -> key.EndsWith "product type")
+            |> Map.map (fun key values ->
+                let words =
+                    values 
+                    |> Seq.collect whiteSpaceTokenizer
+                    |> Seq.map stem
+                    |> Seq.countBy id
+                let largest = float (words |> Seq.map snd |> Seq.max)
+                words
+                |> Seq.map (fun (w,c) -> w, float c / largest)
+                |> Map.ofSeq)
+
+        fun sample ->
+            fun obs ->
+                let productTypes = 
+                    obs.Product.Attributes
+                    |> Map.filter (fun k v -> k.EndsWith "product type")
+                    |> Map.map (fun k v -> types.[k])
+                    |> Seq.collect (fun kv -> kv.Value)
+                    |> Seq.map (fun kv -> kv.Key, kv.Value)
+                obs.SearchTerm
+                |> whiteSpaceTokenizer
+                |> Seq.map stem
+                |> Seq.fold (fun acc word ->
+                    let score = 
+                        productTypes 
+                        |> Seq.fold (fun s (w,x) ->
+                            if w = word then s + x else s) 0.
+                    acc + score) 0.
 
                    
     let ``Taylor / unique words in search terms`` : FeatureLearner =

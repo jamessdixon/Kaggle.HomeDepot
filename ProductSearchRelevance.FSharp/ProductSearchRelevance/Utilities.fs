@@ -24,12 +24,18 @@ module Utilities =
     let punctuation = Regex(@"(\w)[.,!?;]([A-Z])")
     let missingSpace (text:string) = punctuation.Replace(text, "$1 $2")
 
-    let cleanPunctuation (text:string) = Regex(@"[,!?;:]@").Replace(text, " 2")
+    let cleanPunctuation (text:string) = Regex(@"[,!?;:]").Replace(text, " ")
     
     // remove , separating thousands
     let thousandsSeparator = Regex(@"(\d+),(?=\d{3}(\D|$))", RegexOptions.Compiled)
     let inline cleanThousands (txt:string) =
         thousandsSeparator.Replace(txt,"$1")
+
+    let inline cleanNonFractions (text:string) =
+        Regex.Replace(text, "([^0-9])\/([^0-9])", "$1 $2")
+
+    let inline cleanNonDigits (text:string) =
+        Regex.Replace(text, "([^0-9])\.([^0-9])", "$1 $2")
 
     let fraction = Regex(@"(\d)\s*/\s*(\d)", RegexOptions.Compiled)
     let inline cleanFractions (txt:string) = fraction.Replace(txt,"$1/$2")
@@ -79,12 +85,23 @@ module Utilities =
     let inline numberLetter (text:string) =
         Regex.Replace(text, "([0-9])([a-zA-Z])", "$1 $2")
 
-    let inline cleanNonFractions (text:string) =
-        Regex.Replace(text, "([^0-9])\/([^0-9])", "$1 $2")
+    let lettersNumbers = [ 
+        "zero", 0
+        "one", 1
+        "two", 2
+        "tree", 3
+        "four", 4
+        "five", 5
+        "six", 6
+        "seven", 7
+        "eight", 8
+        "nine", 9 ]
 
-    let inline cleanNonDigits (text:string) =
-        Regex.Replace(text, "([^0-9])\.([^0-9])", "$1 $2")
-
+    let replaceNumbers (txt:string) =
+        lettersNumbers 
+        |> Seq.fold (fun (t:string) (number,value) -> 
+            t.Replace(sprintf " %s " number, sprintf " %i " value)) txt
+        
     let trim (txt:string) = txt.Trim ()
 
     let preprocess =
@@ -99,6 +116,7 @@ module Utilities =
         >> cleanPunctuation
         >> letterNumber
         >> numberLetter
+        >> replaceNumbers
         >> cleanPercent
         >> cleanDollars
         >> cleanInches
@@ -114,27 +132,18 @@ module Utilities =
 
     let uniques (words:string[]) = words |> Set.ofArray
 
-    // extracting values from measure attributes
-    let numberExtractor = Regex """(\d+.\d+|.d+|\d+)"""    
-    let inline measureOf (text:string) = 
-        cleanThousands text
-        |> numberExtractor.Match
-        |> fun x -> x.Value |> float
-
+    let basicNumbers = Regex(@"(?<!/)(\d+)(\.\d+)?(?!/)", RegexOptions.Compiled)
+    let extractBasicNumbers (text:string) =
+        basicNumbers.Matches text 
+        |> Seq.cast<Match> 
+        |> Seq.map (fun x -> x.Value |> float) 
+        |> Seq.toList
+        
     (*
     Tokenization
     *)
     
     type Tokenizer = string -> string[]
-
-//    let matchWords = Regex(@"\w+",RegexOptions.Compiled)
-//
-//    let wordTokenizer : Tokenizer = fun text ->
-//        text
-//        |> matchWords.Matches
-//        |> Seq.cast<Match>
-//        |> Seq.map (fun m -> m.Value)
-//        |> Array.ofSeq
     
     let whiteSpaceTokenizer : Tokenizer = fun text ->
         Regex.Split(text,@"\s+")

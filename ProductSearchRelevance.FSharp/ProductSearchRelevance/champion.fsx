@@ -38,7 +38,8 @@ let features =
         ``Frequency weighted title match``                  // 0.461863 > Kaggle 0.47902
         ``Contains a surface``                              // 0.461150
         ``Brand mismatch``                                  // 0.461061
-        ``Title contains last search term``                 // 0.457116 - with modified aggressive pre-proc
+        ``Title contains last search term``                 // 0.455789 - with modified aggressive pre-proc
+        ``Product type match``                              // 0.455558
     |]
 
 
@@ -86,6 +87,6 @@ let learner (sample:Example[]) =
 
 //evaluate 10 learner
 
-//let test = learner trainset
+let test = learner trainset
 
-createSubmission learner
+//createSubmission learner
