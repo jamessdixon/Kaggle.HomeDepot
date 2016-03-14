@@ -43,7 +43,6 @@ let features =
         ``Bigrams title match``
     |]
 
-
 let learner (sample:Example[]) =
    
     let features = 

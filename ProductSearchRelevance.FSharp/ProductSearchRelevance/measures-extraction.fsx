@@ -1,89 +1,136 @@
-﻿#r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsecCS.dll"
-#r @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\packages\FParsec\lib\net40-client\FParsec.dll"
-open FParsec
-
-let spaceOrDash :Parser<unit,unit> =
-    (skipChar '-') <|> spaces
-
-let pSimpleFraction : Parser<float,unit> =
-    tuple2
-        (pint32 .>> spaces .>> pstring "/" .>> spaces)
-        pint32
-    |>> fun (x,y) -> float x / float y
-
-let pComplexFraction : Parser<float,unit> =
-    tuple3
-        (pint32 .>> spaceOrDash)
-        (pint32 .>> spaces .>> pstring "/" .>> spaces)
-        pint32
-    |>> fun (x,y,z) -> float x + float y / float z
-
-let pMeasure : Parser<float,unit> = pComplexFraction <|> pSimpleFraction <|> pfloat
-
-run pMeasure "1/2"
-
-let pfoo : Parser<float,unit> =
-    (tuple2 (pint32 .>> pstring ".") pint32) <|> (tuple2 (pint32 .>> pstring "/") pint32 |>> fun (x,y) -> float x / float y)
-
-run pfoo "1/2"
-
+﻿open System
 open System.Text.RegularExpressions
+open System.Net
+open System.Collections.Concurrent
 
-let simple = Regex(@"\d*\.*\d+")
-let simpleNumber (text:string) = simple.Match text
+(*
+Basic string operations
+*)
 
-simpleNumber " 1.2a 3/4"
+// cleansing
 
-let bar (text:string) = Regex.Replace(text,@"(\d*\.*\d+)","$1") |> float
-bar "123.45"
+let inline cleanHtml (txt:string) = WebUtility.HtmlDecode txt
 
-let fraction = Regex(@"(\d+)\s*\/\s*(\d+)")
+let inline lowerCase (txt:string) = txt.ToLowerInvariant()
 
-let foo (text:string) = Regex.Replace(text,@"(\d+)\s*\/\s*(\d+)","$1./$2.")
+let manySpaces = Regex(@"\s+", RegexOptions.Compiled)
+let inline cleanSpaces (txt:string) = manySpaces.Replace(txt, " ")
 
-let fractionNumber (text:string) = fraction.Match text
+// processing numbers
 
-fractionNumber "1 2 /  23 x 23 1/2"
+// remove , separating thousands
+let thousandsSeparator = Regex(@"(\d+),(?=\d{3}(\D|$))", RegexOptions.Compiled)
+let inline cleanThousands (txt:string) =
+    thousandsSeparator.Replace(txt,"$1")
 
-let complex = Regex(@"\d+\s\d+\s*\/\s*\d+")
-let complexNumber (text:string) = complex.Matches text
+let dots = Regex(@"([^0-9])\.|\.([^0-9]|$)", RegexOptions.Compiled)
+let inline cleanDots (txt:string) =
+    dots.Replace(txt,"$1 $2")
 
-complexNumber "1 2 /  23 x 23 1/2"
+// misses A/C
+let fraction = Regex(@"([^0-9])\/|\/([^0-9]|$)", RegexOptions.Compiled)
+let inline cleanFractions (txt:string) =
+    fraction.Replace(txt, "$1 $2")
 
-let test = Regex("^-?(?<WholeNumber>\d+)(?<Partial>(\.(?<Decimal>\d+))|(/(?<Denomiator>\d+))|(\s(?<Fraction>\d+/\d+)))?$")
-let m = test.Match "42 12/30"
-m.Groups.["WholeNumber"]
-m.Groups.["Denomiator"]
+// nuke punctuation signs, except .
+// commas separating 1000s need to be handled first
+let punctuation = Regex(@"[!?;:,\[\]\(\)\+\-&#_ې۪�]", RegexOptions.Compiled)
+let inline cleanPunctuation (txt:string) = punctuation.Replace(txt, " ")
 
-test.GetGroupNames()
+// careful, symbols used for feet and inches
+let exclamation = Regex(@"['\""]", RegexOptions.Compiled)
+let cleanExclamation (txt:string) = exclamation.Replace(txt, " ")
 
-let bad = """(\d+)\s*([^/]|\w)"""
-let realInt = Regex(@"(\d+)[/]")
-let x = "12/"
+let dollars = Regex("([0-9])\s*\$ | \$\s*([0-9])", RegexOptions.Compiled)
+let cleanDollars (txt:string) = dollars.Replace(txt, "$1 dollars $2")
 
-realInt.Matches x
+let units = [
+    "sq. ft.", @"(square|sq)\.?\s*('|ft\.|ft|foot|feet)"
+    "cu. ft.", @"(cubic|cu)\.?\s*('|ft\.|ft|foot|feet)"
+    "pct.", "%"
+    "in.", @"""|inches|inch|in\.|in\s"
+    "ft.", @"'|ft\.|ft|foot|feet"
+    "lb.", @"pounds|pound|lbs|lb\.|lb"
+    "gal.", @"gallons|gallon|gal\s|gal\."
+    "oz.", @"ounces|ounce|oz\.|oz"
+    "volt", @"volts|volt|V\s|v\s" // check 5-v
+    "watt", @"watts|watt" // check 5 W vs. width?
+    "amp", @"ampere|amps|amp\."
+    "btu", @"BTU"
+    "yd.", @"yards|yard|yd\.|yd"
+    "mm", @"millimeters|millimeter|mm\.|mm\s"
+    ]
 
-let hell = Regex("""(?<float>\d*\.*\d+)""")
+let unitsReplacers =
+    units
+    |> List.map (fun (replacement,pattern) ->
+        let regex = Regex(sprintf "([0-9]\s*)(%s)" pattern, RegexOptions.Compiled)
+        fun (txt:string) -> regex.Replace(txt, sprintf "$1 %s " replacement))
 
-let test = hell.Matches("3.14 0.5 .123 1/2")
+let inline cleanUnits (txt:string) = 
+    unitsReplacers 
+    |> List.fold (fun result f -> f result) txt
 
-test.[3].Groups.["numerator"]
+let multiply = Regex("([0-9\.\s])(\*|x|X|by\s)(\s*[0-9])", RegexOptions.Compiled)
+let inline cleanMultiply (txt:string) = multiply.Replace(txt, "$1 x $3")
 
-let complicated = Regex(@"(?<float>\d*\.\d+)|(?<integer>\d*)\s+(?<numerator>\d+)\s*\/\s*(?<denominator>\d+)", RegexOptions.Compiled)
+let inline letterNumber (text:string) =
+    Regex.Replace(text, "([a-zA-Z])([0-9])", "$1 $2")
 
-let extract (text:string) =
-    let results = complicated.Matches(text)
-    results
-    |> Seq.cast<Match>
-    |> Seq.map (fun m -> 
-        let flo = m.Groups.["float"].Value
-        if flo <> "" then (float flo)
-        else
-            let lead = m.Groups.["integer"].Value
-            let num = m.Groups.["numerator"].Value
-            let den = m.Groups.["denominator"].Value
-            if lead = "" 
-            then (float num) / (float den)
-            else (float lead) + (float num) / (float den))
-    |> Seq.toList
+let inline numberLetter (text:string) =
+    Regex.Replace(text, "([0-9])([a-zA-Z])", "$1 $2")
 
+let lettersNumbers = [ 
+    "zero", 0
+    "one", 1
+    "two", 2
+    "tree", 3
+    "four", 4
+    "five", 5
+    "six", 6
+    "seven", 7
+    "eight", 8
+    "nine", 9 ]
+
+let inline replaceNumbers (txt:string) =
+    lettersNumbers 
+    |> Seq.fold (fun (t:string) (number,value) -> 
+        t.Replace(sprintf " %s " number, sprintf " %i " value)) txt
+        
+let trim (txt:string) = txt.Trim ()
+
+let preprocess =
+    cleanHtml 
+    >> lowerCase
+    >> cleanThousands 
+    >> cleanDots
+    >> cleanFractions
+    >> cleanPunctuation
+    >> letterNumber
+    >> numberLetter
+    >> replaceNumbers
+    >> cleanDollars
+    >> cleanUnits
+    >> cleanMultiply
+    >> cleanExclamation
+    >> cleanSpaces
+    >> trim
+
+#load "Dependencies.fsx"
+open FSharp.Data
+
+[<Literal>]
+let trainPath = @"../data/train.csv"
+type Train = CsvProvider<trainPath,Schema=",,,,float">
+
+let test = 
+    Train.GetSample().Rows
+    |> Seq.map (fun x -> x.Product_title, x.Product_title |> preprocess)
+    |> Seq.take 100
+    |> Seq.iter (fun (a,b) -> 
+        printfn "%s" a
+        printfn "  %s" b)
+
+Train.GetSample().Rows
+|> Seq.map (fun x -> x.Search_term)
+|> Seq.filter (fun x -> x.Contains " by ")

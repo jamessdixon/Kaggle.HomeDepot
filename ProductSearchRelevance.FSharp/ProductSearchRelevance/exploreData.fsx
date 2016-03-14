@@ -80,6 +80,76 @@ type Test = CsvProvider<testPath>
 type AllAttributes = CsvProvider<attributesPath>
 type AllProducts = CsvProvider<productsPath>
 
+let brandNames = 
+    AllAttributes.GetSample().Rows
+    |> Seq.filter (fun x -> x.Name = "MFG Brand Name")
+    |> Seq.map (fun x -> x.Value |> preprocess)
+    |> Seq.distinct
+    |> Seq.toList
+
+brandNames.Length
+
+brandNames |> List.filter (fun x -> x.Contains "k")
+
+Train.GetSample().Rows 
+|> Seq.map (fun x -> x.Search_term.ToLowerInvariant())
+//|> Seq.iter (fun x -> printfn "%s" x)
+|> Seq.filter (fun x -> x.Contains "batting") |> Seq.toList
+
+Train.GetSample().Rows 
+|> Seq.map (fun x -> x.Product_title.ToLowerInvariant())
+|> Seq.filter (fun x -> x.Contains "multi tool") |> Seq.toList
+
+let foo = Regex(@"\bporcel[a-z]*\b")
+let bar (txt:string) = foo.Replace (txt,"everbilt")
+
+brandNames |> Seq.find (fun x -> x.Contains "vig")
+
+let titlesVocabulary = 
+    Train.GetSample().Rows
+    |> Seq.distinctBy (fun x -> x.Product_uid)
+    |> Seq.map (fun x -> 
+        x.Product_title 
+        |> preprocess 
+        |> whiteSpaceTokenizer 
+        |> Set.ofArray)
+    |> Set.unionMany 
+
+let brandsVocabulary = 
+    brandNames
+    |> Seq.map (whiteSpaceTokenizer >> uniques)
+    |> Set.unionMany
+       
+let searchVocabulary = 
+    Train.GetSample().Rows
+    |> Seq.distinctBy (fun x -> x.Search_term)
+    |> Seq.map (fun x -> x.Search_term |> preprocess)
+    |> Seq.collect whiteSpaceTokenizer
+    |> Seq.countBy id    
+    |> Seq.toArray
+
+let misspell =     
+    searchVocabulary
+    |> Array.filter (fun (word,count) -> not (titlesVocabulary.Contains word))
+    |> Array.filter (fun (word,count) -> not (brandsVocabulary.Contains word))
+
+misspell.Length
+
+misspell 
+|> Array.filter (fun x -> snd x > 1) 
+|> Array.iter (fun x -> printfn """    "%s"," " """ (fst x))
+
+let descriptionVocabulary = 
+    AllProducts.GetSample().Rows
+    |> Seq.map (fun x -> x.Product_description |> preprocess)
+    |> Seq.collect whiteSpaceTokenizer
+    |> Seq.countBy id    
+    |> Seq.toArray
+
+ryobl
+//hinghs
+//chanpayne
+//incide
 Train.GetSample().Rows 
 |> Seq.take 100 
 |> Seq.map (fun x -> x.Product_title, x.Product_title |> preprocess) |> Seq.toList
@@ -99,14 +169,56 @@ AllAttributes.GetSample().Rows
 trainset
 |> Seq.filter (fun (a,b) -> b.SearchTerm.Contains "pounds")
 
-let number = Regex(@"(\d+)")
-let check (t:string) = number.Matches t |> Seq.cast<Match> |> Seq.map (fun x -> x.Value |> float)
+Train.GetSample().Rows 
+|> Seq.map (fun x -> x.Search_term, x.Search_term |> preprocess)
+|> Seq.take 50
+|> Seq.toList
+
+let types = 
+    attributes 
+    |> Map.filter (fun key value -> key.EndsWith "product type")
+    |> Map.map (fun key values ->
+        let words =
+            values 
+            |> Seq.collect whiteSpaceTokenizer
+            |> Seq.countBy id
+        let largest = float (words |> Seq.map snd |> Seq.max)
+        words
+        |> Seq.map (fun (w,c) -> w, float c / largest)
+        |> Map.ofSeq)
+
+types |> Map.map (fun k v -> v |> Seq.toList)
+
+let binaries = 
+    attributes 
+    |> Map.filter (fun key value -> value.Contains "no")
+    |> Seq.map (fun kv -> kv.Value)
+    |> Seq.distinct 
+
+
+trainset 
+|> Seq.map (fun (a,b) -> b.SearchTerm)
+|> Seq.filter (fun b -> b.Contains " zero ")
 
 trainset
 |> Seq.map (fun (a,b) -> 
     b.Product.Attributes 
-    |> Seq.filter (fun kv -> kv.Key.Contains "product type")
-    |> Seq.map (fun kv -> kv.Value))
+    |> Seq.filter (fun kv -> kv.Value = "no")
+    |> Seq.map (fun kv -> kv.Key))
+
+let test = 
+    trainset
+    |> Seq.groupBy (fun (a,b) -> b.SearchTerm)
+    |> Seq.take 10
+    |> Seq.map (fun (s,xs) -> 
+        s, 
+        xs 
+        |> Seq.sortBy fst 
+        |> Seq.map (fun (a,b) -> a, b.Product.Title)
+        |> Seq.toList)
+    |> Seq.toList
+
+
 
 trainset
 |> Seq.map (fun (a,b) ->
