@@ -7,7 +7,6 @@ module Model =
     open System.Text.RegularExpressions
     open System.Diagnostics
 
-    open FSharp.Collections.ParallelSeq
     open FSharp.Data
 
     open HomeDepot.Utilities
@@ -69,7 +68,7 @@ module Model =
         printfn "Loading product descriptions"
 
         AllProducts.GetSample().Rows
-        |> PSeq.map (fun row -> 
+        |> Seq.map (fun row -> 
             row.Product_uid, 
             row.Product_description |> normalize)
         |> dict
@@ -79,19 +78,20 @@ module Model =
         printfn "Pre-processing attributes"
 
         AllAttributes.GetSample().Rows
-        |> PSeq.map (fun x ->
+        |> Seq.map (fun x ->
             x.Product_uid, 
             x.Name |> normalize, 
             x.Value |> normalize)
+        |> Seq.toArray
         
     let attributes =
 
         printfn "Loading attributes"
 
         preprocessedAttributes
-        |> PSeq.map (fun (id,name,value) -> name,value)
-        |> PSeq.groupBy fst
-        |> PSeq.map (fun (key,values) ->
+        |> Seq.map (fun (id,name,value) -> name,value)
+        |> Seq.groupBy fst
+        |> Seq.map (fun (key,values) ->
             key,
             values |> Seq.map snd |> set)
         |> Map.ofSeq
@@ -119,7 +119,7 @@ module Model =
         printfn "Loading train data"
 
         Train.GetSample().Rows
-        |> PSeq.map (fun row ->
+        |> Seq.map (fun row ->
             let description = descriptions.[row.Product_uid]
             let attributes = attributesFor (row.Product_uid)
             let product =
@@ -143,7 +143,7 @@ module Model =
         printfn "Loading test data"
 
         Test.GetSample().Rows
-        |> PSeq.map (fun row ->
+        |> Seq.map (fun row ->
             let description = descriptions.[row.Product_uid]
             let attributes = attributesFor (row.Product_uid)
             let product =
@@ -163,7 +163,7 @@ module Model =
 
     let rmse sample =
         sample
-        |> PSeq.averageBy (fun (act, exp) ->
+        |> Seq.averageBy (fun (act, exp) ->
             let delta = act - exp
             delta * delta)
         |> sqrt

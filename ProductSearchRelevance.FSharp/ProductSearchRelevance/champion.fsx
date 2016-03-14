@@ -40,6 +40,7 @@ let features =
         ``Brand mismatch``                                  // 0.461061
         ``Title contains last search term``                 // 0.455789 - with modified aggressive pre-proc
         ``Product type match``                              // 0.455558
+        ``Bigrams title match``
     |]
 
 

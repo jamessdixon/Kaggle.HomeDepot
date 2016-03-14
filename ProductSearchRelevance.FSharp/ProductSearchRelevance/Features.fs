@@ -422,6 +422,25 @@ module Features =
                             if w = word then s + x else s) 0.
                     acc + score) 0.
 
+    let ``Bigrams title match`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let titleBigrams = 
+                    obs.Product.Title 
+                    |> whiteSpaceTokenizer 
+                    |> Array.map stem 
+                    |> Array.pairwise
+                let searchBigrams = 
+                    obs.SearchTerm 
+                    |> whiteSpaceTokenizer 
+                    |> Array.map stem 
+                    |> Array.pairwise
+                searchBigrams
+                |> Seq.fold (fun acc term -> 
+                    if titleBigrams |> Array.contains term
+                    then acc + 1. else acc) 0.
+
+
                    
     let ``Taylor / unique words in search terms`` : FeatureLearner =
         fun sample ->
