@@ -14,70 +14,72 @@ module Utilities =
     Basic string operations
     *)
 
-    // cleansing
+// cleansing
 
     let inline cleanHtml (txt:string) = WebUtility.HtmlDecode txt
 
     let inline lowerCase (txt:string) = txt.ToLowerInvariant()
 
-    // insert missing space in "end.Start"
-    let punctuation = Regex(@"(\w)[.,!?;]([A-Z])")
-    let missingSpace (text:string) = punctuation.Replace(text, "$1 $2")
+    let manySpaces = Regex(@"\s+", RegexOptions.Compiled)
+    let inline cleanSpaces (txt:string) = manySpaces.Replace(txt, " ")
 
-    let cleanPunctuation (text:string) = Regex(@"[,!?;:]").Replace(text, " ")
-    
+    // processing numbers
+
     // remove , separating thousands
     let thousandsSeparator = Regex(@"(\d+),(?=\d{3}(\D|$))", RegexOptions.Compiled)
     let inline cleanThousands (txt:string) =
         thousandsSeparator.Replace(txt,"$1")
 
-    let inline cleanNonFractions (text:string) =
-        Regex.Replace(text, "([^0-9])\/([^0-9])", "$1 $2")
+    let dots = Regex(@"([^0-9])\.|\.([^0-9]|$)", RegexOptions.Compiled)
+    let inline cleanDots (txt:string) =
+        dots.Replace(txt,"$1 $2")
 
-    let inline cleanNonDigits (text:string) =
-        Regex.Replace(text, "([^0-9])\.([^0-9])", "$1 $2")
+    // misses A/C
+    let fraction = Regex(@"([^0-9])\/|\/([^0-9]|$)", RegexOptions.Compiled)
+    let inline cleanFractions (txt:string) =
+        fraction.Replace(txt, "$1 $2")
 
-    let fraction = Regex(@"(\d)\s*/\s*(\d)", RegexOptions.Compiled)
-    let inline cleanFractions (txt:string) = fraction.Replace(txt,"$1/$2")
+    // nuke punctuation signs, except .
+    // commas separating 1000s need to be handled first
+    let punctuation = Regex(@"[!?;:,\[\]\(\)\+\-&#_ې۪�]", RegexOptions.Compiled)
+    let inline cleanPunctuation (txt:string) = punctuation.Replace(txt, " ")
 
-    let manySpaces = Regex(@"\s+", RegexOptions.Compiled)
-    let inline cleanSpaces (txt:string) = manySpaces.Replace(txt, " ")
-
-    let redundantChars = Regex(@"[\[\]\(\)\+\-&#_ې۪�]")
-    let inline cleanRedundantChars (txt:string) = redundantChars.Replace(txt," ")
-
-    let percent = Regex("([0-9]\s*)%", RegexOptions.Compiled)
-    let cleanPercent (txt:string) = percent.Replace(txt, "$1 percent ")
+    // careful, symbols used for feet and inches
+    let exclamation = Regex(@"['\""]", RegexOptions.Compiled)
+    let cleanExclamation (txt:string) = exclamation.Replace(txt, " ")
 
     let dollars = Regex("([0-9])\s*\$ | \$\s*([0-9])", RegexOptions.Compiled)
     let cleanDollars (txt:string) = dollars.Replace(txt, "$1 dollars $2")
 
-    let inches = Regex("""([0-9]\s*)("|inches|inch|in\.|in\s)""", RegexOptions.Compiled)
-    let inline cleanInches (txt:string) = inches.Replace(txt,"$1 inches ")
+    let units = [
+        "sq. ft.", @"(square|sq)\.?\s*('|ft\.|ft|foot|feet)"
+        "cu. ft.", @"(cubic|cu)\.?\s*('|ft\.|ft|foot|feet)"
+        "pct.", "%"
+        "in.", @"""|inches|inch|in\.|in\s"
+        "ft.", @"'|ft\.|ft|foot|feet"
+        "lb.", @"pounds|pound|lbs|lb\.|lb"
+        "gal.", @"gallons|gallon|gal\s|gal\."
+        "oz.", @"ounces|ounce|oz\.|oz"
+        "volt", @"volts|volt|V\s|v\s" // check 5-v
+        "watt", @"watts|watt" // check 5 W vs. width?
+        "amp", @"ampere|amps|amp\."
+        "btu", @"BTU"
+        "yd.", @"yards|yard|yd\.|yd"
+        "mm", @"millimeters|millimeter|mm\.|mm\s"
+        ]
 
-    let feet = Regex("""([0-9]\s*)('|ft|foot|feet)""", RegexOptions.Compiled)
-    let inline cleanFeet (txt:string) = feet.Replace(txt,"$1 feet ")
+    let unitsReplacers =
+        units
+        |> List.map (fun (replacement,pattern) ->
+            let regex = Regex(sprintf "([0-9]\s*)(%s)" pattern, RegexOptions.Compiled)
+            fun (txt:string) -> regex.Replace(txt, sprintf "$1 %s " replacement))
 
-    let pounds = Regex("""([0-9]\s*)(pounds|pound|lbs|lb)""", RegexOptions.Compiled)
-    let inline cleanPounds (txt:string) = pounds.Replace(txt,"$1 pounds ")
+    let inline cleanUnits (txt:string) = 
+        unitsReplacers 
+        |> List.fold (fun result f -> f result) txt
 
-    let gallons = Regex("""([0-9]\s*)(gallons|gallon|gal\s|gal\.)""", RegexOptions.Compiled)
-    let inline cleanGallons (txt:string) = gallons.Replace(txt,"$1 gallons ")
-
-    let ounces = Regex("""([0-9]\s*)(ounces|ounce|oz)""", RegexOptions.Compiled)
-    let inline cleanOunces (txt:string) = ounces.Replace(txt,"$1 ounces ")
-    
-    let volts = Regex("""([0-9]\s*)(volts|volt|\sV\s)""", RegexOptions.Compiled)
-    let inline cleanVolts (txt:string) = volts.Replace(txt,"$1 volts ")
-
-    let watts = Regex("""([0-9]\s*)(watts|watt)""", RegexOptions.Compiled)
-    let inline cleanWatts (txt:string) = watts.Replace(txt,"$1 watts ")
-
-    let amperes = Regex("""([0-9]\s*)(ampere|amps|amp\.)""", RegexOptions.Compiled)
-    let inline cleanAmperes (txt:string) = amperes.Replace(txt,"$1 amperes ")
-
-    let multiply = Regex("([^a-zA-Z])(\*|x|X)(\s*[0-9])", RegexOptions.Compiled)
-    let inline cleanMultiply (txt:string) = multiply.Replace(txt, "$1 multiply $3")
+    let multiply = Regex("([0-9\.\s])(\*|x|X|by\s)(\s*[0-9])", RegexOptions.Compiled)
+    let inline cleanMultiply (txt:string) = multiply.Replace(txt, "$1 x $3")
 
     let inline letterNumber (text:string) =
         Regex.Replace(text, "([a-zA-Z])([0-9])", "$1 $2")
@@ -97,7 +99,7 @@ module Utilities =
         "eight", 8
         "nine", 9 ]
 
-    let replaceNumbers (txt:string) =
+    let inline replaceNumbers (txt:string) =
         lettersNumbers 
         |> Seq.fold (fun (t:string) (number,value) -> 
             t.Replace(sprintf " %s " number, sprintf " %i " value)) txt
@@ -106,27 +108,18 @@ module Utilities =
 
     let preprocess =
         cleanHtml 
-        >> missingSpace 
         >> lowerCase
         >> cleanThousands 
+        >> cleanDots
         >> cleanFractions
-        >> cleanNonFractions
-        >> cleanRedundantChars
-        >> cleanNonDigits
         >> cleanPunctuation
         >> letterNumber
         >> numberLetter
         >> replaceNumbers
-        >> cleanPercent
         >> cleanDollars
-        >> cleanInches
-        >> cleanFeet
-        >> cleanPounds
-        >> cleanGallons
-        >> cleanOunces
-        >> cleanVolts
-        >> cleanWatts
+        >> cleanUnits
         >> cleanMultiply
+        >> cleanExclamation
         >> cleanSpaces
         >> trim
 

@@ -6,6 +6,7 @@ module Model =
     open System.IO
     open System.Text.RegularExpressions
 
+    open FSharp.Collections.ParallelSeq
     open FSharp.Data
 
     open HomeDepot.Utilities
@@ -67,7 +68,7 @@ module Model =
         printfn "Loading product descriptions"
 
         AllProducts.GetSample().Rows
-        |> Seq.map (fun row -> 
+        |> PSeq.map (fun row -> 
             row.Product_uid, 
             row.Product_description |> normalize)
         |> dict
@@ -77,7 +78,7 @@ module Model =
         printfn "Loading attributes"
 
         AllAttributes.GetSample().Rows
-        |> Seq.map (fun x -> 
+        |> PSeq.map (fun x -> 
             x.Name |> normalize, 
             x.Value |> normalize)
         |> Seq.groupBy fst
