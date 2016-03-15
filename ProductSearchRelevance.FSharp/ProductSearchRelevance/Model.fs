@@ -133,7 +133,7 @@ module Model =
             row.Relevance,
             {
                 ID = row.Id
-                SearchTerm = row.Search_term |> normalize
+                SearchTerm = row.Search_term |> normalize |> cleanMisspellings |> cleanSpaces
                 Product = product
             })
         |> Seq.toArray
@@ -156,7 +156,7 @@ module Model =
             // Fully constructed observation
             {
                 ID = row.Id
-                SearchTerm = row.Search_term |> normalize
+                SearchTerm = row.Search_term |> normalize |> cleanMisspellings |> cleanSpaces
                 Product = product
             })
         |> Seq.toArray
