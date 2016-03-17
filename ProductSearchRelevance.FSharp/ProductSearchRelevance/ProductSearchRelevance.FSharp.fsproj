@@ -51,7 +51,7 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>
@@ -82,6 +82,8 @@
     <None Include="champion.fsx" />
     <None Include="attributesTest.fsx" />
     <None Include="measures-extraction.fsx" />
+    <None Include="Thesaurus.fsx" />
+    <None Include="NHunspell.1.2.5554.16953.zip" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Accord.Neuro">
