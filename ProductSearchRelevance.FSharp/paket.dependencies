@@ -1,16 +1,7 @@
 source https://www.nuget.org/api/v2
 framework >= net461
 
-nuget Accord >= 3.0.2
-nuget Accord.MachineLearning >= 3.0.2
-nuget Accord.Math >= 3.0.2
-nuget Accord.Neuro >= 3.0.2
-nuget Accord.Statistics >= 3.0.2
-nuget AForge.Neuro
 nuget alglibnet2
 nuget FSharp.Collections.ParallelSeq >= 1.0.2
 nuget FSharp.Data >= 2.2.5
-nuget FuzzyString
-nuget NHunspell
 nuget StemmersNet
-nuget FParsec

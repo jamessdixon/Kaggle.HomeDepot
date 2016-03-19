@@ -41,6 +41,7 @@ let features =
         ``Title contains last search term``                 // 0.455789 - with modified aggressive pre-proc
         ``Product type match``                              // 0.455558
         ``Bigrams title match``
+        ``Trigrams title match``
     |]
 
 let learner (sample:Example[]) =

@@ -1,9 +1,4 @@
-Accord
-Accord.Math
-Accord.Statistics
 FSharp.Collections.ParallelSeq
 FSharp.Data
 StemmersNet
 alglibnet2
-FuzzyString
-FParsec

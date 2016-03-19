@@ -63,27 +63,9 @@
     <Compile Include="Model.fsi" />
     <Compile Include="Model.fs" />
     <Compile Include="Features.fs" />
-    <Compile Include="StringUtils.fs" />
-    <Compile Include="Dimensions.fs" />
-    <Compile Include="CsvData.fs" />
-    <Compile Include="TFIDF.fs" />
-    <Compile Include="Core.fs" />
     <None Include="Dependencies.fsx" />
-    <None Include="TFIDF.fsx" />
-    <None Include="sampleModel.fsx" />
-    <None Include="highScore.fsx" />
-    <None Include="extendedBenchmarkScore.fsx" />
-    <None Include="benchmarkScore.fsx" />
-    <None Include="exploreData.fsx" />
-    <None Include="accordCrossValidation.fsx" />
-    <None Include="accordNeuralNetwork.fsx" />
     <Content Include="paket.references" />
-    <None Include="Logistic.fsx" />
     <None Include="champion.fsx" />
-    <None Include="attributesTest.fsx" />
-    <None Include="measures-extraction.fsx" />
-    <None Include="Thesaurus.fsx" />
-    <None Include="NHunspell.1.2.5554.16953.zip" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Accord.Neuro">
