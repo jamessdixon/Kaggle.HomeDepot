@@ -19,6 +19,8 @@ module Utilities =
 
     let inline lowerCase (txt:string) = txt.ToLowerInvariant()
 
+    let inline pureWord (txt:string) = Regex.IsMatch(txt, @"[a-z]")
+
     let manySpaces = Regex(@"\s+", RegexOptions.Compiled)
     let inline cleanSpaces (txt:string) = manySpaces.Replace(txt, " ")
 

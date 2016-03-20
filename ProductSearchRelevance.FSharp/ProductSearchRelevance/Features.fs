@@ -353,7 +353,7 @@ module Features =
             |> Map.ofSeq
         fun sample ->
             fun obs ->
-                let title = obs.Product.Title |> whiteSpaceTokenizer
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem
                 obs.SearchTerm 
                 |> whiteSpaceTokenizer 
                 |> Array.map stem
@@ -440,6 +440,7 @@ module Features =
                     if titleBigrams |> Array.contains term
                     then acc + 1. else acc) 0.
 
+    // weak
     let ``Trigrams title match`` : FeatureLearner = 
         fun sample ->
             fun obs ->
@@ -457,3 +458,104 @@ module Features =
                 |> Seq.fold (fun acc term -> 
                     if titleTrigrams |> Array.contains term
                     then acc + 1. else acc) 0.
+
+    // weak
+    let ``certifications and listings`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.ContainsKey "certifications and listings"
+                then 1.
+                else 0.
+
+    // weak
+    let ``energy star certified`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.ContainsKey "energy star certified"
+                then 1.
+                else 0.
+
+    // weak
+    let ``material`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.ContainsKey "material"
+                then 1.
+                else 0.
+
+    // weak
+    let ``product length in`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.ContainsKey "product length in"
+                then 1.
+                else 0.
+
+    // weak
+    let ``product width in`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.ContainsKey "product width in"
+                then 1.
+                else 0.
+
+    // weak
+    let ``product height in`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.ContainsKey "product height in"
+                then 1.
+                else 0.
+
+    // weak
+    let ``product depth in`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.ContainsKey "product depth in"
+                then 1.
+                else 0.
+
+    let ``Word bigrams title match`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let titleBigrams = 
+                    obs.Product.Title 
+                    |> whiteSpaceTokenizer 
+                    |> Array.map (fun w -> stem w, pureWord w) 
+                    |> Array.pairwise
+                    |> Array.filter (fun ((_,w1), (_,w2)) -> w1 && w2)
+                let searchBigrams = 
+                    obs.SearchTerm 
+                    |> whiteSpaceTokenizer 
+                    |> Array.map (fun w -> stem w, pureWord w) 
+                    |> Array.pairwise
+                    |> Array.filter (fun ((_,w1), (_,w2)) -> w1 && w2)
+                searchBigrams
+                |> Seq.fold (fun acc term -> 
+                    if titleBigrams |> Array.contains term
+                    then acc + 1. else acc) 0.
+
+    let ``Frequency weighted title match 2`` : FeatureLearner = 
+        let frequencies = 
+            let titles = seq { 
+                yield! trainset |> Seq.map (fun (l,o) -> o.Product.Title)
+                yield! testset |> Seq.map (fun o -> o.Product.Title) }
+            titles
+            |> Seq.distinct
+            |> Seq.map (fun title -> title |> whiteSpaceTokenizer |> Array.map stem)
+            |> Seq.collect id
+            |> Seq.filter pureWord
+            |> Seq.countBy id
+            |> Seq.map (fun (word,count) -> word, 1. / float count)
+            |> Map.ofSeq
+        fun sample ->
+            fun obs ->
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem
+                obs.SearchTerm 
+                |> whiteSpaceTokenizer 
+                |> Array.map stem
+                |> Array.filter pureWord
+                |> Array.sumBy (fun word -> 
+                    match (frequencies.TryFind word) with
+                    | Some(x) -> x
+                    | None -> 0.)
