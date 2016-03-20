@@ -8,7 +8,6 @@ module Utilities =
     open System.Collections.Concurrent
 
     open Iveonik.Stemmers
-    open FParsec
 
     (*
     Basic string operations
@@ -506,67 +505,3 @@ module Utilities =
     let standardizeMeasures str =
         let standard = replacers |> List.fold (fun s (p,r) -> p.Replace(s, r)) str
         collapseMeasurement.Replace(standard, "$1$2")
-
-
-    // given a requested value and the result
-    // return a value of 1.0 for a perfect match,
-    // - 1.0 for a bad match
-//    let closeness (tolerance:float) requested result =
-//        1. - 2. * (abs (requested - result) / ((1.0 - tolerance) * max requested result))
-
-    let closeness (tolerance:float) requested result =
-        let delta = abs (requested - result) / requested
-        if delta < 0.25 then 1.
-        elif delta < 0.5 then 0.
-        else -1.
-
-    (*
-    // illustration
-    let x = 10.0
-    let tol = 0.25
-    // this is always -1.0, regardless of tol
-    closeness tol x (x * tol)
-    closeness tol x (x / tol)
-    *)
-
-    let spaceOrDash :Parser<unit,unit> =
-        (skipChar '-') <|> spaces
-
-    let pSimpleFraction : Parser<float,unit> =
-        tuple2
-            (pint32 .>> spaces .>> pstring "/" .>> spaces)
-            pint32
-        |>> fun (x,y) -> float x / float y
-
-    let pComplexFraction : Parser<float,unit> =
-        tuple3
-            (pint32 .>> spaceOrDash)
-            (pint32 .>> spaces .>> pstring "/" .>> spaces)
-            pint32
-        |>> fun (x,y,z) -> float x + float y / float z
-
-    let pMeasure : Parser<float,unit> = pComplexFraction <|> pSimpleFraction <|> pfloat
-        
-
-    // basic units / no fractions
-
-    let pVolts : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "volt" <|> (pstring "V" .>> (eof <|> spaces1)))
-    let pWatts : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "watt" <|> (pstring "W" .>> (eof <|> spaces1)))
-    let pAmps : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "amp")
-    let pGallons : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "gal")
-    let pPounds : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "lb" <|> pstringCI "pound")
-    let pInches : Parser<float,unit> = pfloat .>> spaceOrDash .>> (pstringCI "inches" <|> pstringCI "in")
-
-    let findMeasure (parser:Parser<float,unit>) (text:string) =
-        let last = text.Length - 1
-        let rec search i =
-            if i = last
-            then None
-            elif (Char.IsDigit text.[i])
-            then
-                match run parser (text.Substring(i)) with
-                | Success(x,_,_) -> Some x
-                | Failure(_) -> search (i+1)
-            else
-                search (i+1)
-        search 0
