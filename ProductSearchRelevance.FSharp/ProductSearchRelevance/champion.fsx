@@ -50,9 +50,10 @@ let features =
 //        ``product depth in``
         ``Word bigrams title match``
         ``Frequency weighted title match 2``
+        ``Search vs Title similarity``
     |]
 
-let learner (sample:Example[]) =
+let rflearner (sample:Example[]) =
    
     let features = 
         featurizer features (sample |> Array.map snd)
@@ -96,6 +97,6 @@ let learner (sample:Example[]) =
 
 //evaluate 10 learner
 
-let model = learner trainset
+let rf = rflearner trainset
 
 //createSubmission learner

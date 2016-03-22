@@ -383,6 +383,25 @@ module Utilities =
     Tokenization
     *)
     
+    let weightsVector (weights: Map<string,float>) (words: string []) (included: string Set)=
+        words 
+        |> Array.map (fun w -> 
+            if included.Contains w then
+                match (weights.TryFind w) with
+                | None -> 0.
+                | Some(weight) -> weight
+            else 0.)
+
+    let similarity (weights1: Map<string,float>) (weights2: Map<string,float>) (words1: string Set) (words2: string Set) =
+        let words = Set.union words1 words2 |> Set.toArray
+        let v1 = weightsVector weights1 words words1 
+        let v2 = weightsVector weights2 words words2
+        let top = (v1,v2) ||> Seq.map2 (fun x1 x2 -> x1 * x2) |> Seq.sum
+        let n1 = v1 |> Seq.sumBy (fun x -> x * x) |> sqrt
+        let n2 = v2 |> Seq.sumBy (fun x -> x * x) |> sqrt
+        let bottom = n1 * n2
+        if bottom = 0. then 0. else top / bottom
+
     type Tokenizer = string -> string[]
     
     let whiteSpaceTokenizer : Tokenizer = fun text ->

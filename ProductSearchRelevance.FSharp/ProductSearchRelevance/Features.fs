@@ -559,3 +559,33 @@ module Features =
                     match (frequencies.TryFind word) with
                     | Some(x) -> x
                     | None -> 0.)
+
+    let ``Search vs Title similarity`` : FeatureLearner = 
+        let titleFrequencies = 
+            let titles = seq { 
+                yield! trainset |> Seq.map (fun (l,o) -> o.Product.Title)
+                yield! testset |> Seq.map (fun o -> o.Product.Title) }
+            titles
+            |> Seq.distinct
+            |> Seq.map (fun title -> title |> whiteSpaceTokenizer |> Array.map stem)
+            |> Seq.collect id
+            |> Seq.countBy id
+            |> Seq.map (fun (word,count) -> word, 1. / float count)
+            |> Map.ofSeq
+        let searchFrequencies = 
+            let searches = seq { 
+                yield! trainset |> Seq.map (fun (l,o) -> o.SearchTerm)
+                yield! testset |> Seq.map (fun o -> o.SearchTerm) }
+            searches
+            |> Seq.distinct
+            |> Seq.map (fun title -> title |> whiteSpaceTokenizer |> Array.map stem)
+            |> Seq.collect id
+            |> Seq.countBy id
+            |> Seq.map (fun (word,count) -> word, 1. / float count)
+            |> Map.ofSeq
+
+        fun sample ->
+            fun obs ->
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem |> uniques
+                let search = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem |> uniques
+                similarity titleFrequencies searchFrequencies title search
