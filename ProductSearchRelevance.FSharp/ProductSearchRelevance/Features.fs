@@ -119,8 +119,8 @@ module Features =
                 match (obs.Product.Attributes.TryFind brandAttribute) with
                 | None -> 0.
                 | Some(brand) ->
-                    let name = brand |> lowerCase |> whiteSpaceTokenizer |> uniques
-                    let terms = obs.SearchTerm |> lowerCase |> whiteSpaceTokenizer |> uniques
+                    let name = brand |> whiteSpaceTokenizer |> uniques
+                    let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques
                     let inter = Set.intersect name terms
                     (float inter.Count) / (float name.Count)
 
@@ -374,7 +374,7 @@ module Features =
                 yield! trainset |> Seq.map (fun (l,o) -> o.Product.Attributes.TryFind brandAttribute)
                 yield! testset |> Seq.map (fun o -> o.Product.Attributes.TryFind brandAttribute) }
             |> Seq.choose id
-            |> Seq.map (simplify >> lowerCase)
+            |> Seq.map (whiteSpaceTokenizer >> uniques)
             |> Seq.distinct
             |> Set.ofSeq
         fun sample ->
@@ -382,10 +382,10 @@ module Features =
                 let brand = obs.Product.Attributes.TryFind brandAttribute
                 match brand with
                 | None -> 0.
-                | Some(b) ->
-                    let brandName = (simplify >> lowerCase) b
-                    let terms = (simplify >> lowerCase) obs.SearchTerm
-                    let inSearch = brands |> Set.filter (fun x -> terms.Contains x)
+                | Some(brandName) ->
+                    let brandName = brandName |> whiteSpaceTokenizer |> uniques
+                    let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques
+                    let inSearch = brands |> Set.filter (fun x -> (Set.intersect x terms).Count > 0)
                     if (inSearch |> Set.contains brandName) then 0. else 1.
 
     let ``Product type match`` : FeatureLearner = 
@@ -589,3 +589,26 @@ module Features =
                 let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem |> uniques
                 let search = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem |> uniques
                 similarity titleFrequencies searchFrequencies title search
+
+    let ``Measure mismatch`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let title = 
+                    obs.Product.Title 
+                    |> whiteSpaceTokenizer 
+                    |> Array.filter pureNumber
+                    |> Array.map float
+                let search = 
+                    obs.SearchTerm 
+                    |> whiteSpaceTokenizer 
+                    |> Array.filter pureNumber
+                    |> Array.map float
+                if search.Length = 0 || title.Length = 0
+                then 0.
+                else
+                    search 
+                    |> Array.map (fun x ->
+                        title 
+                        |> Seq.map (fun t -> abs (t - x) / x)
+                        |> Seq.min)
+                    |> Seq.max

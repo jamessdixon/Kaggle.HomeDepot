@@ -51,6 +51,7 @@ let features =
         ``Word bigrams title match``
         ``Frequency weighted title match 2``
         ``Search vs Title similarity``
+        ``Measure mismatch``
     |]
 
 let rflearner (sample:Example[]) =
@@ -95,8 +96,8 @@ let rflearner (sample:Example[]) =
 
     predictor
 
-//evaluate 10 learner
+//evaluate 10 rflearner
 
 let rf = rflearner trainset
 
-//createSubmission learner
+createSubmission rflearner

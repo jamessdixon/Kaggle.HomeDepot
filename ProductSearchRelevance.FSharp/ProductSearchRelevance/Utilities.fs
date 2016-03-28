@@ -21,6 +21,8 @@ module Utilities =
 
     let inline pureWord (txt:string) = Regex.IsMatch(txt, @"[a-z]")
 
+    let inline pureNumber (txt:string) = Regex.IsMatch(txt, @"^(\d+)(\.\d+)?$")
+
     let manySpaces = Regex(@"\s+", RegexOptions.Compiled)
     let inline cleanSpaces (txt:string) = manySpaces.Replace(txt, " ")
 
@@ -107,6 +109,12 @@ module Utilities =
         
     let trim (txt:string) = txt.Trim ()
 
+    let specialCases = [
+        "outdoor", "outdoor " // for 'outdoor table' for instance
+        "x mas", "christmas" 
+
+        ]
+
     let substitutions = [
         "accesories", "accessories" 
         "accesory", "accessory" 
@@ -117,7 +125,7 @@ module Utilities =
         "americian", "american" 
         "barbque", "barbeque" 
         "batterys", "batteries" 
-        "berh", "behr " 
+        "berh", "behr" // was a space? why?
         "bisquit", "biscuit" 
         "blad", "blade" 
         "blubs", "bulbs" 
@@ -139,13 +147,13 @@ module Utilities =
         "dor", "door" 
         "dorr", "door" 
         "drils", "drills" 
-        "ele", " " 
+//        "ele", " " 
         "elec", "electric" 
         "electic", "electric" 
         "electical", "electrical" 
         "eletric", "electric" 
         "fictures", "fixtures" 
-        "fireglass", " " 
+//        "fireglass", " " 
         "flexable", "flexible" 
         "florecent", "fluorescent" 
         "flouresc", "fluoresc" 
@@ -155,7 +163,7 @@ module Utilities =
         "glaciar", "glacier" 
         "handel", "handle" 
         "hindge", "hinge" 
-        "hookups", " " 
+//        "hookups", " " 
         "infared", "infrared" 
         "inx", "in. x " 
         "jeldwen", "jeld wen" 
@@ -173,13 +181,12 @@ module Utilities =
         "nickle", "nickel" 
         "nitch", "niche" 
         "ourdoor", "outdoor" 
-        "outdoor", "outdoor " // for 'outdoor table' for instance
         "pain", "pane" 
         "panals", "panels" 
         "pannel", "panel" 
         "pation", "patio" 
         "pice", "piece" 
-        "plans", " " 
+//        "plans", " " 
         "porcelian", "porcelain" 
         "porcelian", "porcelain" 
         "porcelin", "porcelain" 
@@ -219,7 +226,7 @@ module Utilities =
         "trimer", "trimmer" 
         "underdeck", "under deck" 
         "upholstry", "upholstery" 
-        "vaccume", "vaccum" 
+        "vaccume", "vacuum" 
         "vaccuum", "vacuum" 
         "vacum", "vacuum" 
         "venner", "veneer" 
@@ -265,9 +272,9 @@ module Utilities =
         "fridgidaire", "frigidaire" 
         "frig", "fridge" 
         "furnance", "furnace" 
-        "galv ", "galvanized " 
+        "galv", "galvanized" 
         "gazeebo", "gazebo" 
-        "gl ", "gal. " 
+        "gl", "gal." 
         "granit", "granite" 
         "hammerdrill", "hammer drill" 
         "handels", "handles" 
@@ -289,9 +296,8 @@ module Utilities =
         "liftmaster", "lift master" 
         "lightbulb", "light bulb" 
         "ligth", "light" 
-        "x mas", "mas" 
         "masonary", "masonry" 
-        " med ", " medium " 
+        "med", " medium " 
         "mikita", "makita" 
         "milwaukie", "milwaukee" 
         "morter", "mortar" 
@@ -299,7 +305,7 @@ module Utilities =
         "oscilating", "oscillating" 
         "pannels", "panels" 
         "pastic", "plastic" 
-        " pcv ", " pvc " 
+        "pcv", "pvc" 
         "pedistal", "piedestal" 
         "peir", "pier" 
         "plastice", "plastic" 
@@ -307,7 +313,7 @@ module Utilities =
         "polymeric", "polymer" 
         "prelit", "pre lit" 
         "pressuer", "pressure" 
-        " pvs ", " pvc " 
+        "pvs", "pvc" 
         "quarteround", "quarter round" 
         "rainbird", "rain bird" 
         "receptical", "receptacle" 
@@ -336,7 +342,7 @@ module Utilities =
         "vynil", "vinyl" 
         "walll", "wall" 
         "wallplate", "wall plate" 
-        " wat ", " watt " 
+        "wat", "watt" 
         "waterheater", "water heater" 
         "weedeater", "weed eater" 
         "whit", "white" 
@@ -348,10 +354,13 @@ module Utilities =
         "zwave", "wave" 
         ]
 
+    let replacer (before:string,after:string) (txt:string) = 
+        let before = sprintf @"\b(%s)\b" before
+        Regex.Replace(txt,before,after)
+
     let inline cleanMisspellings (txt:string) =
         substitutions
-        |> Seq.map (fun (before,after) -> sprintf " %s " before, sprintf " %s " after)
-        |> Seq.fold (fun (acc:string) (before,after) -> acc.Replace(before,after)) txt
+        |> Seq.fold (fun (acc:string) (before,after) -> replacer (before,after) acc) txt
 
     let preprocess =
         cleanHtml 
