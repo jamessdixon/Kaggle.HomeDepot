@@ -2,3 +2,5 @@ FSharp.Collections.ParallelSeq
 FSharp.Data
 StemmersNet
 alglibnet2
+accord.neuro
+accord.machinelearning

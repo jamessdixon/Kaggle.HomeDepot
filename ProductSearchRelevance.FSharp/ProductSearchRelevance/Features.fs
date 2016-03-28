@@ -612,3 +612,20 @@ module Features =
                         |> Seq.map (fun t -> abs (t - x) / x)
                         |> Seq.min)
                     |> Seq.max
+
+    // no improvement on leaderboard
+    let ``Dimension information`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let xs = obs.SearchTerm.Contains (" x ")
+                if xs
+                then
+                    let dimensions = 
+                        obs.Product.Attributes 
+                        |> Map.filter (fun k v -> 
+                            k.Contains "height" 
+                            || k.Contains "width"
+                            || k.Contains "length") 
+                        |> Seq.length
+                    1. / (1. + float dimensions)
+                else 0.

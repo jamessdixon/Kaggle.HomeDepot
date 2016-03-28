@@ -3,7 +3,18 @@
 open HomeDepot.Model
 open HomeDepot.Features
 
-#r "alglibnet2/lib/alglibnet2.dll"
+#I @"../packages/"
+#r @"Accord/lib/net45/Accord.dll"
+#r @"Accord.MachineLearning\lib\net45\Accord.MachineLearning.dll"
+#r @"Accord.Math\lib\net45\Accord.Math.dll"
+#r @"Accord.Statistics\lib\net45\Accord.Statistics.dll"
+#r @"Accord.Neuro/lib/net45/accord.neuro.dll"
+
+open Accord
+open Accord.Statistics
+open AForge.Neuro
+open Accord.Neuro
+open Accord.Neuro.Learning
 
 let features = 
     [| 
@@ -51,54 +62,71 @@ let features =
         ``Word bigrams title match``
         ``Frequency weighted title match 2``
         ``Search vs Title similarity``
-        ``Measure mismatch``
-//        ``Dimension information``
     |]
 
-let rflearner (sample:Example[]) =
-   
+let nnlearner layer1 layer2 (sample:Example[]) =
+
     let features = 
         featurizer features (sample |> Array.map snd)
 
     printfn "Preparing data"
 
-    let trainInputOutput =
+    let ys, xs =
         sample
         |> Array.Parallel.map (fun (label,observation) ->
+            let l = label - 2.0
             let fs = observation |> extract features
-            Array.append fs [| label |])
-        |> array2D
+            [| l |], fs)
+        |> Array.unzip
 
-    printfn "Training random forest"
+    printfn "Training NN"
 
-    let trees = 600
-    let proportionHeldOut = 0.1
-    let sampleSize = sample.Length
-    let featureCount = features.Length
-    let featuresUsed = sqrt (float featureCount) |> ceil |> int
+    let featuresCount = features.Length
+    let activation = BipolarSigmoidFunction()
+    let network = ActivationNetwork(activation, featuresCount, [| layer1; layer2; 1 |])
+    NguyenWidrow(network).Randomize()
 
-    let _info, forest, forestReport =
-        alglib.dfbuildrandomdecisionforestx1(
-            trainInputOutput, 
-            sampleSize, 
-            featureCount, 
-            1, 
-            trees, 
-            featuresUsed, 
-            proportionHeldOut)
-    
-    printfn "Out-of-bag RMS err: %f, avg err: %f" forestReport.oobrmserror forestReport.oobavgerror
+    let teacher = new ParallelResilientBackpropagationLearning(network)
+    let epochs = 2000
 
-    let predictor (obs:Observation) = 
-        let fs = obs |> extract features
-        let mutable result : float [] = [||]
-        alglib.dfprocess(forest, fs, &result)
-        result.[0]
+    let rec learn iter =
+        let error = teacher.RunEpoch(xs, ys)
+        if (iter % 100 = 0) then printfn "%.3f / %i" error iter
 
-    predictor
+        if error < 0.001 
+        then 
+            let predictor image = 
+                network.Compute image 
+                |> fun z -> z.[0] + 2.0
+            predictor
+        elif iter > epochs 
+        then 
+            let predictor image = 
+                network.Compute image 
+                |> fun z -> z.[0] + 2.0
+            predictor
+        else learn (iter + 1)
 
-//evaluate 10 rflearner
+    let predictor = learn 0
 
-let rf = rflearner trainset
+    fun obs -> obs |> extract features |> predictor
 
-createSubmission rflearner
+let train = trainset.[..9999]
+let test = trainset.[10000..19999]
+
+let calibration = 
+    [ for n1 in 4 .. 4 .. 20 do
+        for n2 in 4 .. 4 .. 20 ->
+            printfn "%i,%i" n1 n2
+            let nn = nnlearner n1 n2 train
+            (n1,n2), 
+            test 
+            |> Seq.map (fun (l,o) -> l, nn o)
+            |> rmse
+    ]
+// evaluate 10 nnlearner
+
+// let nn = nnlearner trainset
+
+//createSubmission nnlearner
+

@@ -66,6 +66,8 @@
     <None Include="Dependencies.fsx" />
     <Content Include="paket.references" />
     <None Include="champion.fsx" />
+    <None Include="Exploration.fsx" />
+    <None Include="NeuralNetwork.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
