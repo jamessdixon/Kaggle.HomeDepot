@@ -83,7 +83,7 @@ module Features =
         fun sample ->
             fun obs -> 
                 let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let desc = obs.Product.Description |> whiteSpaceTokenizer |> Array.map descriptionSentenceBreak |> Array.collect id |> uniques |> Set.map stem
+                let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 Set.intersect terms desc |> Set.count |> float
 
     // weak
@@ -91,9 +91,32 @@ module Features =
         fun sample ->
             fun obs -> 
                 let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let desc = obs.Product.Description |> whiteSpaceTokenizer |> Array.map descriptionSentenceBreak |> Array.collect id |> uniques |> Set.map stem
+                let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.map stem
                 let intersect = Set.intersect terms desc
                 float intersect.Count / float terms.Count
+
+    let ``frequency weighted search terms matched in description`` : FeatureLearner =
+        let frequencies = 
+            let terms = seq {
+                yield! trainset |> Seq.map (fun (l,o) -> o.Product.Description)
+                yield! testset |> Seq.map (fun o -> o.Product.Description) }               
+            terms
+            |> Seq.distinct
+            |> Seq.map (fun term -> term |> whiteSpaceTokenizer |> Array.map stem)
+            |> Seq.collect id
+            |> Seq.countBy id
+            |> Seq.map (fun (word,count) -> word, 1. / float count)
+            |> Map.ofSeq
+
+        fun sample ->
+            fun obs -> 
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let desc = obs.Product.Description |> whiteSpaceTokenizer |> Array.map stem
+                desc
+                |> Array.sumBy (fun word ->
+                    if terms.Contains word 
+                    then frequencies.[word] 
+                    else 0.)
 
     let ``Unique search terms`` : FeatureLearner =
         fun sample ->

@@ -25,6 +25,7 @@ module Utilities =
 
     let manySpaces = Regex(@"\s+", RegexOptions.Compiled)
     let inline cleanSpaces (txt:string) = manySpaces.Replace(txt, " ")
+    
 
     // processing numbers
 
@@ -443,9 +444,9 @@ module Utilities =
     // Breaking malformed sentences in Description
     let pattern = """(^[a-z|0-9]+)[.!?]?([A-Z]\w+)|(^\w+)[.!?]([A-Z]\w+)"""
 
-    let descriptionSentenceBreak (word:string) =
-        let breaker = Regex(pattern)
-        Regex.Split(word,pattern) |> Array.filter((<>) "")
+    let sentenceBreak = """([a-z|0-9])([A-Z][a-z])"""
+    let inline descriptionSentenceBreak (word:string) =
+        Regex.Replace(word, sentenceBreak, "$1 $2")
 
     (* 
     //Crude validation for the sentence break

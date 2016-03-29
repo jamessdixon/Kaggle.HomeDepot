@@ -70,7 +70,7 @@ module Model =
         AllProducts.GetSample().Rows
         |> Seq.map (fun row -> 
             row.Product_uid, 
-            row.Product_description |> normalize)
+            row.Product_description |> descriptionSentenceBreak |> normalize)
         |> dict
 
     let preprocessedAttributes =

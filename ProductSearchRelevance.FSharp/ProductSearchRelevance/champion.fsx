@@ -11,6 +11,7 @@ let features =
         ``% unique search terms matched in title``           
         ``Unique search terms matched in description``
         ``% unique search terms matched in description``
+        ``frequency weighted search terms matched in description``
         ``Unique search terms``
 //        ``Duplicate search terms``                          
         ``Search terms length``                             
