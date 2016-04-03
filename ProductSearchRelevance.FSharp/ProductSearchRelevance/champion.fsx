@@ -74,8 +74,8 @@ let rflearner (sample:Example[]) =
 
     printfn "Training random forest"
 
-    let trees = 600
-    let proportionHeldOut = 0.1
+    let trees = 1000
+    let proportionHeldOut = 0.25
     let sampleSize = sample.Length
     let featureCount = features.Length
     let featuresUsed = sqrt (float featureCount) |> ceil |> int
