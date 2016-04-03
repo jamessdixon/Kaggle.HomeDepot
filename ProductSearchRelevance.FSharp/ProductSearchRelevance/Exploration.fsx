@@ -3,7 +3,18 @@
 open HomeDepot.Model
 open HomeDepot.Features
 open HomeDepot.Utilities
+#load "Caching.fs"
+open HomeDepot.Caching
 
+
+
+open FSharp.Data
+[<Literal>]
+let trainPath = @"../data/train.csv"
+
+type Train = CsvProvider<trainPath,Schema=",,,,float">
+let sample = Train.GetSample()
+sample.Headers
 let brands =
     trainset
     |> Seq.choose (fun (_,x) -> x.Product.Attributes.TryFind brandAttribute)
@@ -11,6 +22,31 @@ let brands =
     |> Seq.toArray
 
 brands |> Array.filter (fun x-> x.Split ' ' |> Array.length > 1)
+
+trainset 
+|> Seq.filter (fun (_,x) -> x.Product.Attributes.Count = 0)
+|> Seq.length
+
+trainset 
+|> Seq.filter (fun (_,x) -> x.SearchTerm.Contains "out door")
+//|> Seq.iter (fun (_,x) -> printfn "%s" x.SearchTerm)
+|> Seq.length
+
+trainset 
+|> Seq.filter (fun (_,x) -> x.SearchTerm.Contains "x mas")
+//|> Seq.iter (fun (_,x) -> printfn "%s" x.SearchTerm)
+|> Seq.length
+
+
+trainset 
+|> Seq.filter (fun (_,x) -> x.SearchTerm.Contains "shelf")
+|> Seq.iter (fun (_,x) -> printfn "%s" x.SearchTerm)
+|> Seq.length
+
+trainset 
+|> Seq.filter (fun (_,x) -> x.SearchTerm.Contains "shelv")
+|> Seq.iter (fun (_,x) -> printfn "%s" x.SearchTerm)
+|> Seq.length
 
 trainset
 |> Seq.filter (fun (_,x)-> x.SearchTerm.Contains " x ")

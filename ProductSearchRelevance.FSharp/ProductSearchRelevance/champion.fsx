@@ -54,6 +54,8 @@ let features =
         ``Search vs Title similarity``
         ``Measure mismatch``
 //        ``Dimension information``
+        ``Has no attributes``
+        ``Title match weighted by position``
     |]
 
 let rflearner (sample:Example[]) =

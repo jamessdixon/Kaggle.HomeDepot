@@ -4,12 +4,10 @@ module Model =
 
     open System
     open System.IO
-    open System.Text.RegularExpressions
-    open System.Diagnostics
 
     open FSharp.Data
 
-    open HomeDepot.Utilities
+    open HomeDepot.Caching
 
     (*
     Prelude: core types
@@ -44,19 +42,17 @@ module Model =
     Data loading
     *)
 
-    let inline normalize (txt:string) = preprocess txt
-
     [<Literal>]
-    let trainPath = @"../data/train.csv"
+    let cachedTrainFile = @"../cache/train.csv"
+    
     [<Literal>]
-    let testPath = @"../data/test.csv"
+    let cachedTestFile = @"../cache/test.csv"
+    
     [<Literal>]
-    let attributesPath = @"../data/attributes.csv"
+    let cachedAttributesFile = @"../cache/attributes.csv"
+    
     [<Literal>]
-    let productsPath =  @"..\data\product_descriptions.csv"
-
-    [<Literal>]
-    let submissionPath =  @"../data/"
+    let cachedDescriptionsFile = @"../cache/product_descriptions.csv"
 
     type Train = CsvProvider<trainPath,Schema=",,,,float">
     type Test = CsvProvider<testPath>
@@ -67,21 +63,21 @@ module Model =
 
         printfn "Loading product descriptions"
 
-        AllProducts.GetSample().Rows
+        AllProducts.Load(cachedDescriptionsFile).Rows
         |> Seq.map (fun row -> 
             row.Product_uid, 
-            row.Product_description |> descriptionSentenceBreak |> normalize)
+            row.Product_description)
         |> dict
 
     let preprocessedAttributes =
 
-        printfn "Pre-processing attributes"
+        printfn "Loading raw attributes"
 
-        AllAttributes.GetSample().Rows
+        AllAttributes.Load(cachedAttributesFile).Rows
         |> Seq.map (fun x ->
             x.Product_uid, 
-            x.Name |> normalize, 
-            x.Value |> normalize)
+            x.Name, 
+            x.Value)
         |> Seq.toArray
         
     let attributes =
@@ -118,14 +114,14 @@ module Model =
 
         printfn "Loading train data"
 
-        Train.GetSample().Rows
+        Train.Load(cachedTrainFile).Rows
         |> Seq.map (fun row ->
             let description = descriptions.[row.Product_uid]
             let attributes = attributesFor (row.Product_uid)
             let product =
                 {
                     UID = row.Product_uid
-                    Title = row.Product_title |> normalize
+                    Title = row.Product_title
                     Description = description
                     Attributes = attributes
                 }
@@ -133,7 +129,7 @@ module Model =
             row.Relevance,
             {
                 ID = row.Id
-                SearchTerm = row.Search_term |> normalize |> cleanMisspellings |> cleanSpaces
+                SearchTerm = row.Search_term
                 Product = product
             })
         |> Seq.toArray
@@ -142,21 +138,21 @@ module Model =
 
         printfn "Loading test data"
 
-        Test.GetSample().Rows
+        Test.Load(cachedTestFile).Rows
         |> Seq.map (fun row ->
             let description = descriptions.[row.Product_uid]
             let attributes = attributesFor (row.Product_uid)
             let product =
                 {
                     UID = row.Product_uid
-                    Title = row.Product_title |> normalize
+                    Title = row.Product_title
                     Description = description
                     Attributes = attributes
                 }
             // Fully constructed observation
             {
                 ID = row.Id
-                SearchTerm = row.Search_term |> normalize |> cleanMisspellings |> cleanSpaces
+                SearchTerm = row.Search_term
                 Product = product
             })
         |> Seq.toArray

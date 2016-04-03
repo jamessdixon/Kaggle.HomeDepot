@@ -111,10 +111,15 @@ module Utilities =
     let trim (txt:string) = txt.Trim ()
 
     let specialCases = [
+        "out door", "outdoor"
         "outdoor", "outdoor " // for 'outdoor table' for instance
+        "indoor", "indoor "
         "x mas", "christmas" 
-
         ]
+
+    let fixSpecialCases (txt:string) =
+        specialCases
+        |> Seq.fold (fun (txt:string) (before,after) -> txt.Replace(before,after)) txt
 
     let substitutions = [
         "accesories", "accessories" 
@@ -363,9 +368,12 @@ module Utilities =
         substitutions
         |> Seq.fold (fun (acc:string) (before,after) -> replacer (before,after) acc) txt
 
+    let inline stemShelf (txt:string) = txt.Replace("shelf", "shelv")
+
     let preprocess =
         cleanHtml 
         >> lowerCase
+        >> stemShelf
         >> cleanThousands 
         >> cleanDots
         >> cleanFractions
@@ -377,6 +385,7 @@ module Utilities =
         >> cleanUnits
         >> cleanMultiply
         >> cleanExclamation
+        >> fixSpecialCases
         >> cleanSpaces
         >> trim
 
@@ -447,25 +456,6 @@ module Utilities =
     let sentenceBreak = """([a-z|0-9])([A-Z][a-z])"""
     let inline descriptionSentenceBreak (word:string) =
         Regex.Replace(word, sentenceBreak, "$1 $2")
-
-    (* 
-    //Crude validation for the sentence break
-    let test =
-        [
-            "basic"
-            "Basic"
-            "BASIC"
-            "beforeAfter"
-            "BeforeAfter"
-            "Before.After"
-            "before.After"
-            "123After"
-            "123.45After"
-            "beforeAFter"
-            "beforeMyProduct"
-        ]
-        |> List.map descriptionSentenceBreak
-    *)
 
     (*
     Stemmer

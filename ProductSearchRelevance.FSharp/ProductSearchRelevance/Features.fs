@@ -3,8 +3,6 @@
 module Features =
 
     open System
-    open System.Collections.Concurrent
-    open System.Text.RegularExpressions
 
     open HomeDepot.Utilities
     open HomeDepot.Model
@@ -652,3 +650,21 @@ module Features =
                         |> Seq.length
                     1. / (1. + float dimensions)
                 else 0.
+
+    let ``Has no attributes`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                if obs.Product.Attributes.Count = 0 then 1. else 0.
+
+    let ``Title match weighted by position`` : FeatureLearner = 
+        fun sample ->
+            fun obs ->
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem |> uniques
+                let len = float (terms.Length)
+                terms 
+                |> Seq.mapi (fun i word -> 
+                    if title.Contains word 
+                    then float (i + 1) / float len
+                    else 0.)
+                |> Seq.sum

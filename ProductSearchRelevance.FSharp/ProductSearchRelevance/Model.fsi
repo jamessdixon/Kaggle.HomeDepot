@@ -24,7 +24,7 @@ module Model =
 
     val trainset : Example []
     val testset : Observation []
-    val attributes: Map<string,Set<string>>
+    val attributes : Map<string,Set<string>>
 
     val rmse : (Relevance * Relevance) seq -> float
 
