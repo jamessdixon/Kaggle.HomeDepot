@@ -62,36 +62,42 @@ module Features =
     Feature definitions
     *)
 
+    let uniqueStems = whiteSpaceTokenizer >> uniques >> Set.map stem
+    let inline isMatch (word:string) term = word.Contains(term) || term.Contains(word)
+    let getMatches words terms =
+        terms |> Seq.where (fun t -> words |> Seq.exists (fun w -> isMatch w t))
+
+    let matchCount terms words =
+        let terms = terms |> uniqueStems
+        let words = words |> uniqueStems
+        getMatches words terms |> Seq.length |> float
+
+    let matchRatio terms words =
+        let terms = terms |> uniqueStems
+        let words = words |> uniqueStems
+        let intersect = Set.intersect terms words
+        float intersect.Count / float terms.Count
+
     let ``Unique search terms matched in title`` : FeatureLearner =
         fun sample ->
-            fun obs -> 
-                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let title = obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                Set.intersect terms title |> Set.count |> float
+            fun obs ->
+                matchCount obs.SearchTerm obs.Product.Title
 
     let ``% unique search terms matched in title`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let title = obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let intersect = Set.intersect terms title
-                float intersect.Count / float terms.Count
+                matchRatio obs.SearchTerm obs.Product.Title
 
     let ``Unique search terms matched in description`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                Set.intersect terms desc |> Set.count |> float
+                matchCount obs.SearchTerm obs.Product.Description
 
     // weak
     let ``% unique search terms matched in description`` : FeatureLearner =
         fun sample ->
             fun obs -> 
-                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let desc = obs.Product.Description |> whiteSpaceTokenizer |> uniques |> Set.map stem
-                let intersect = Set.intersect terms desc
-                float intersect.Count / float terms.Count
+                matchRatio obs.SearchTerm obs.Product.Description
 
     let ``frequency weighted search terms matched in description`` : FeatureLearner =
         let frequencies = 
@@ -100,7 +106,7 @@ module Features =
                 yield! testset |> Seq.map (fun o -> o.Product.Description) }               
             terms
             |> Seq.distinct
-            |> Seq.map (fun term -> term |> whiteSpaceTokenizer |> Array.map stem)
+            |> Seq.map (whiteSpaceTokenizer >> Array.map stem)
             |> Seq.collect id
             |> Seq.countBy id
             |> Seq.map (fun (word,count) -> word, 1. / float count)
