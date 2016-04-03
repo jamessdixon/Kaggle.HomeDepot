@@ -8,10 +8,10 @@ module Caching =
     open HomeDepot.Utilities
 
     [<Literal>]
-    let data = @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\data\"
+    let data = __SOURCE_DIRECTORY__ + @"..\..\data\"
 
     [<Literal>] 
-    let cache = @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\cache\"
+    let cache = __SOURCE_DIRECTORY__ + @"..\..\cache\"
 
     [<Literal>]
     let trainPath = data + "train.csv"
@@ -30,7 +30,7 @@ module Caching =
     type SourceAttributes = CsvProvider<attributesPath>
     type SourceDescriptions = CsvProvider<productsPath>
 
-    let utilities = @"C:\Users\Mathias Brandewinder\Documents\GitHub\Kaggle.HomeDepot\ProductSearchRelevance.FSharp\ProductSearchRelevance\Utilities.fs"
+    let utilities = __SOURCE_DIRECTORY__ + @"\Utilities.fs"
     
     let fingerPrint (path:string) =
 
