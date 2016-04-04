@@ -67,6 +67,14 @@ module Features =
     let getMatches words terms =
         terms |> Seq.where (fun t -> words |> Seq.exists (fun w -> isMatch w t))
 
+    let softMatch (word1:string) (word2:string) =
+        if isMatch word1 word2
+        then
+            let l1 = word1.Length |> float
+            let l2 = word2.Length |> float
+            min l1 l2 / max l1 l2
+        else 0.
+
     let matchCount terms words =
         let terms = terms |> uniqueStems
         let words = words |> uniqueStems
@@ -87,6 +95,21 @@ module Features =
         fun sample ->
             fun obs -> 
                 matchRatio obs.SearchTerm obs.Product.Title
+
+    let ``% unique exact search terms matched in title`` : FeatureLearner =
+        fun sample ->
+            fun obs -> 
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let title = obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.map stem
+                let intersect = Set.intersect terms title
+                float intersect.Count / float terms.Count
+
+    let ``softmatch between search terms and title`` : FeatureLearner =
+        fun sample ->
+            fun obs -> 
+                let terms = uniqueStems obs.SearchTerm
+                let words = uniqueStems obs.Product.Title
+                terms |> Seq.sumBy (fun t -> words |> Seq.sumBy (softMatch t))
 
     let ``Unique search terms matched in description`` : FeatureLearner =
         fun sample ->

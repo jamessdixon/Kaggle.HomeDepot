@@ -56,6 +56,8 @@ let features =
 //        ``Dimension information``
         ``Has no attributes``
         ``Title match weighted by position``
+        ``% unique exact search terms matched in title``
+        ``softmatch between search terms and title``
     |]
 
 let rflearner (sample:Example[]) =
