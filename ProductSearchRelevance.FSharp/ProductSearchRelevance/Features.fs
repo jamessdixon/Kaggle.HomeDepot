@@ -81,10 +81,9 @@ module Features =
         getMatches words terms |> Seq.length |> float
 
     let matchRatio terms words =
-        let terms = terms |> uniqueStems
-        let words = words |> uniqueStems
-        let intersect = Set.intersect terms words
-        float intersect.Count / float terms.Count
+        let matches = matchCount terms words
+        let termsCount = terms |> uniqueStems |> Seq.length
+        float matches / float termsCount
 
     let ``Unique search terms matched in title`` : FeatureLearner =
         fun sample ->
