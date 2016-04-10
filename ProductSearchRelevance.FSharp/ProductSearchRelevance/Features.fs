@@ -63,7 +63,7 @@ module Features =
     *)
 
     let uniqueStems = whiteSpaceTokenizer >> uniques >> Set.map stem
-    let inline isMatch (word:string) term = word.Contains(term) || term.Contains(word)
+    let inline isMatch (word:string) term = distance word term <= word.Length / 4
     let getMatches words terms =
         terms |> Seq.where (fun t -> words |> Seq.exists (fun w -> isMatch w t))
 
@@ -180,7 +180,7 @@ module Features =
             Some query
         else
             brands
-            |> Seq.tryFind (fun b -> query.StartsWith(b + " "))
+            |> Seq.tryFind (fun b -> query.StartsWith(b + " ") || query.EndsWith(" " + b))
 
     let getProductBrand obs =
         match (obs.Product.Attributes.TryFind brandAttribute) with
@@ -218,7 +218,7 @@ module Features =
             fun obs ->
                 let term = (obs.SearchTerm |> whiteSpaceTokenizer).[0] |> stem
                 let word = (obs.Product.Title |> whiteSpaceTokenizer).[0] |> stem
-                if term = word then 1. else 0.
+                if isMatch term word then 1. else 0.
 
     let ``Last search terms and first title words match`` : FeatureLearner =
         fun sample ->
@@ -226,7 +226,7 @@ module Features =
                 let terms = obs.SearchTerm |> whiteSpaceTokenizer
                 let last = terms.[terms.Length - 1] |> stem
                 let word = (obs.Product.Title |> whiteSpaceTokenizer).[0] |> stem
-                if last = word then 1. else 0.
+                if isMatch last word then 1. else 0.
 
     let ``Last search terms and title words match`` : FeatureLearner =
         fun sample ->
@@ -235,7 +235,7 @@ module Features =
                 let lastTerm = terms.[terms.Length - 1] |> stem
                 let words = (obs.Product.Title |> whiteSpaceTokenizer)
                 let lastWord = words.[words.Length - 1] |> stem
-                if lastTerm = lastWord then 1. else 0.
+                if isMatch lastTerm lastWord then 1. else 0.
 
     let ``Title contains last search term`` : FeatureLearner =
         fun sample ->
@@ -292,7 +292,7 @@ module Features =
             fun obs ->
                 let terms = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem
                 let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem
-                (terms, title) ||> Seq.zip |> Seq.takeWhile (fun (a,b) -> a = b) |> Seq.length |> float
+                (terms, title) ||> Seq.zip |> Seq.takeWhile (fun (a,b) -> isMatch a b) |> Seq.length |> float
 
     // different from original but works better
     let ``Longest backwards matching seq between search terms and title`` : FeatureLearner =
@@ -300,7 +300,7 @@ module Features =
             fun obs ->
                 let terms = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem |> Array.rev
                 let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem |> Array.rev
-                (terms, title) ||> Seq.zip |> Seq.takeWhile (fun (a,b) -> a = b) |> Seq.length |> float
+                (terms, title) ||> Seq.zip |> Seq.takeWhile (fun (a,b) -> isMatch a b) |> Seq.length |> float
     
     let ``Number of non-bullet attributes`` : FeatureLearner =
         fun sample ->
