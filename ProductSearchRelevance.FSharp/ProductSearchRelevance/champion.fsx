@@ -15,7 +15,7 @@ let features =
         ``Unique search terms``
 //        ``Duplicate search terms``                          
         ``Search terms length``                             
-        ``Brand match in search terms``
+//        ``Brand match in search terms``
         ``First search terms and title words match``
 //        ``Last search terms and first title words match``
         ``Position of search terms in title``
@@ -37,7 +37,8 @@ let features =
         ``Specificity weighted Search terms match``
         ``Frequency weighted title match``
 //        ``Contains a surface``
-        ``Brand mismatch``
+        ``Query brand matches title brand``
+//        ``Brand mismatch``
         ``Title contains last search term``
         ``Product type match``
         ``Bigrams title match``
@@ -104,6 +105,6 @@ let rflearner (sample:Example[]) =
 
 //evaluate 10 rflearner
 
-let rf = rflearner trainset
+//let rf = rflearner trainset
 
 createSubmission rflearner

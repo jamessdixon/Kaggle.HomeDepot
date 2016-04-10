@@ -162,6 +162,46 @@ module Features =
             fun obs -> 
                 obs.SearchTerm.Length |> float
     
+    open System.Text.RegularExpressions
+    let stopWordRegex = Regex(@"(?:\b|\s)(?:the|and|inc|products)(?:\s|\b)", RegexOptions.Compiled)
+    let cleanBrand (brand:string) =
+        stopWordRegex.Replace(brand, " ").Trim()
+
+    let brands =
+        attributes
+        |> Map.filter (fun k _ -> k = brandAttribute)
+        |> Seq.collect (fun (KeyValue(_,v)) -> v)
+        |> Seq.map cleanBrand
+        |> Set.ofSeq
+
+    let getQueryBrand (query:string) =
+        let query = cleanBrand query
+        if brands.Contains query then
+            Some query
+        else
+            brands
+            |> Seq.tryFind (fun b -> query.StartsWith(b + " "))
+
+    let getProductBrand obs =
+        match (obs.Product.Attributes.TryFind brandAttribute) with
+        | Some b -> Some (b |> cleanBrand)
+        | None -> // fallback to title
+            match getQueryBrand (cleanBrand obs.Product.Title) with
+            | Some b -> Some b
+            | None -> None
+
+    let ``Query brand matches title brand`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                match getQueryBrand obs.SearchTerm with
+                | Some qb ->
+                    let titleBrand = getProductBrand obs
+                    match titleBrand with
+                    | Some t when qb = t -> 1. // match
+                    | Some _ -> -1. // mismatch
+                    | _ -> 0.
+                | None -> 0.
+
     let ``Brand match in search terms`` : FeatureLearner =
         fun sample ->
             fun obs -> 
