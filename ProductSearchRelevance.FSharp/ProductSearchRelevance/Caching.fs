@@ -82,7 +82,7 @@ module Caching =
 
         let lines = seq { 
             yield headers |> Array.map (sprintf "\"%s\"") |> String.concat ","
-            yield! sample.Rows |> Seq.map preprocessTrain
+            yield! sample.Rows |> Array.ofSeq |> Array.Parallel.map preprocessTrain
             }
 
         let path = Path.Combine (cache, "train.csv")
@@ -98,7 +98,7 @@ module Caching =
 
         let lines = seq { 
             yield headers |> Array.map (sprintf "\"%s\"") |> String.concat ","
-            yield! sample.Rows |> Seq.map preprocessTest
+            yield! sample.Rows |> Array.ofSeq |> Array.Parallel.map preprocessTest
             }
 
         let path = Path.Combine (cache, "test.csv")
@@ -114,7 +114,7 @@ module Caching =
 
         let lines = seq { 
             yield headers |> Array.map (sprintf "\"%s\"") |> String.concat ","
-            yield! sample.Rows |> Seq.map preprocessAttributes
+            yield! sample.Rows |> Array.ofSeq |> Array.Parallel.map preprocessAttributes
             }
 
         let path = Path.Combine (cache, "attributes.csv")
@@ -130,7 +130,7 @@ module Caching =
 
         let lines = seq { 
             yield headers |> Array.map (sprintf "\"%s\"") |> String.concat ","
-            yield! sample.Rows |> Seq.map preprocessDescriptions
+            yield! sample.Rows |> Array.ofSeq |> Array.Parallel.map preprocessDescriptions
             }
 
         let path = Path.Combine (cache, "product_descriptions.csv")
