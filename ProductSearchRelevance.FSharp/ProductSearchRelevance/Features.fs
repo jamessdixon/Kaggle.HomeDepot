@@ -253,12 +253,14 @@ module Features =
                 let terms = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem
                 let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem
                 let len = terms.Length
-                seq { for term in terms -> title |> Array.tryFindIndex ((=) term) }
-                |> Seq.map (fun x -> 
-                    match x with 
-                    | None -> 0. 
-                    | Some(x) -> float (len-x) / float len)
-                |> Seq.average
+                let pos =
+                    seq { for term in terms -> title |> Array.tryFindIndex ((=) term) }
+                    |> Seq.choose (fun x -> 
+                        match x with 
+                        | None -> None
+                        | Some(x) -> Some <| float (len-x) / float len)
+                    |> Array.ofSeq
+                if pos.Length = 0 then 0. else pos |> Array.average
 
     //  version from original with title length is weaker
     let ``Reverse position of search terms in title`` : FeatureLearner =
@@ -267,12 +269,14 @@ module Features =
                 let terms = obs.SearchTerm |> whiteSpaceTokenizer |> Array.map stem
                 let title = obs.Product.Title |> whiteSpaceTokenizer |> Array.map stem |> Array.rev
                 let len = terms.Length
-                seq { for term in terms -> title |> Array.tryFindIndex ((=) term) }
-                |> Seq.map (fun x -> 
-                    match x with 
-                    | None -> 0. 
-                    | Some(x) -> float (len-x) / float len)
-                |> Seq.average
+                let pos =
+                    seq { for term in terms -> title |> Array.tryFindIndex ((=) term) }
+                    |> Seq.choose (fun x -> 
+                        match x with 
+                        | None -> None
+                        | Some(x) -> Some <| float (len-x) / float len)
+                    |> Array.ofSeq
+                if pos.Length = 0 then 0. else pos |> Array.average
 
     // weak
     let ``Unmatched search terms in title`` : FeatureLearner =
