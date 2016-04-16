@@ -245,6 +245,10 @@ module Features =
                 let words = (obs.Product.Title |> whiteSpaceTokenizer |> uniques |> Set.map stem)
                 if words |> Set.contains lastTerm then 1. else 0.
 
+    let ``Product Id`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                obs.Product.UID |> float
 
     // weak. version from original with title length is weaker
     let ``Position of search terms in title`` : FeatureLearner =

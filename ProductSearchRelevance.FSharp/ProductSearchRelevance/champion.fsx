@@ -59,6 +59,7 @@ let features =
         ``Title match weighted by position``
         ``% unique exact search terms matched in title``
         ``softmatch between search terms and title``
+        ``Product Id``
     |]
 
 let rflearner (sample:Example[]) =
