@@ -20,5 +20,6 @@ open HomeDepot.Caching
 invalidateCache ()
 
 #load "Model.fsi"
+#load "Colors.fs"
 #load "Model.fs"
 #load "Features.fs"

@@ -60,6 +60,9 @@ let features =
         ``% unique exact search terms matched in title``
         ``softmatch between search terms and title``
         ``Product Id``
+        ``Search term has color``
+        ``Title has color``
+        ``Search and title have matching color``
     |]
 
 let rflearner (sample:Example[]) =

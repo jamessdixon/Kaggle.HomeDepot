@@ -115,6 +115,27 @@ module Features =
             fun obs -> 
                 matchCount obs.SearchTerm obs.Product.Description
 
+    let ``Search term has color`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let color = Colors.colorMatch obs.SearchTerm
+                if color.IsSome then 1. else 0.
+
+    let ``Title has color`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let color = Colors.colorMatch obs.Product.Title
+                if color.IsSome then 1. else 0.
+
+    let ``Search and title have matching color`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let titleColor = Colors.colorMatch obs.Product.Title
+                let queryColor = Colors.colorMatch obs.SearchTerm
+                match titleColor, queryColor with
+                | Some t, Some q when t = q -> 1.
+                | _ -> 0.
+
     // weak
     let ``% unique search terms matched in description`` : FeatureLearner =
         fun sample ->
