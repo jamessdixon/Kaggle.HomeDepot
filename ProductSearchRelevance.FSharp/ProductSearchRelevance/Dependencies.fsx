@@ -21,5 +21,6 @@ invalidateCache ()
 
 #load "Model.fsi"
 #load "Colors.fs"
+#load "Materials.fs"
 #load "Model.fs"
 #load "Features.fs"

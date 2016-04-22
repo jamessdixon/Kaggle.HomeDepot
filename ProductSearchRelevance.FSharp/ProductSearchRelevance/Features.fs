@@ -136,6 +136,34 @@ module Features =
                 | Some t, Some q when t = q -> 1.
                 | _ -> 0.
 
+    open Materials
+
+    let ``Query material count`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                materials |> Seq.where obs.SearchTerm.Contains |> Seq.length |> float
+
+    let ``% search terms are materials`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let materialCount = materials |> Seq.where obs.SearchTerm.Contains |> Seq.length |> float
+                materialCount / (obs.SearchTerm |> whiteSpaceTokenizer |> Array.length |> float)
+
+    let ``Title material count`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                materials |> Seq.where obs.Product.Title.Contains |> Seq.length |> float
+
+    let ``Query and title material match`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let searchMaterials = materials |> Seq.where obs.SearchTerm.Contains |> Set.ofSeq
+                if searchMaterials.Count = 0 then 0.
+                else
+                    let titleMaterials = materials |> Seq.where obs.Product.Title.Contains |> Set.ofSeq
+                    let inter = Set.intersect searchMaterials titleMaterials |> Set.count |> float
+                    inter / float searchMaterials.Count
+
     // weak
     let ``% unique search terms matched in description`` : FeatureLearner =
         fun sample ->

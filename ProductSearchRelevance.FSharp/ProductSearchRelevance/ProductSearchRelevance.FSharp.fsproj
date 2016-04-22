@@ -64,6 +64,7 @@
     <Compile Include="Model.fsi" />
     <Compile Include="Model.fs" />
     <Compile Include="Colors.fs" />
+    <Compile Include="Materials.fs" />
     <Compile Include="Features.fs" />
     <None Include="Dependencies.fsx" />
     <Content Include="paket.references" />
