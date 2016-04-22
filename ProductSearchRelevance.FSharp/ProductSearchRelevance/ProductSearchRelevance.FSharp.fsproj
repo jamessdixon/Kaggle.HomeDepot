@@ -65,9 +65,11 @@
     <Compile Include="Model.fs" />
     <Compile Include="Colors.fs" />
     <Compile Include="Materials.fs" />
+    <Compile Include="Word2Vec.fs" />
     <Compile Include="Features.fs" />
     <None Include="Dependencies.fsx" />
     <Content Include="paket.references" />
+    <None Include="word2vec.fsx" />
     <None Include="champion.fsx" />
     <None Include="Exploration.fsx" />
   </ItemGroup>
@@ -80,6 +82,9 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="Word2Vec.Net">
+      <HintPath>..\..\..\Word2Vec\Word2Vec.Net\bin\Release\Word2Vec.Net.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">

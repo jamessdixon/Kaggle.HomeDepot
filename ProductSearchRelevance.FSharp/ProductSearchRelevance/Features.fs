@@ -63,9 +63,28 @@ module Features =
     *)
 
     let uniqueStems = whiteSpaceTokenizer >> uniques >> Set.map stem
+    
     let inline isMatch (word:string) term = distance word term <= word.Length / 4
+
+    open Word2Vec
     let getMatches words terms =
-        terms |> Seq.where (fun t -> words |> Seq.exists (fun w -> isMatch w t))
+        // split terms by matched and unmatched
+        let matches, nonMatches =
+            terms |> Set.partition (fun t -> words |> Seq.exists (fun w -> isMatch w t))
+        let getMatchWeight _ = 1.
+        let matchWeights = matches |> Seq.map getMatchWeight
+        if nonMatches |> Set.isEmpty then // all terms matched
+            matchWeights |> Seq.sum
+        else // some terms didn't match, try matching those on word2vec synonyms
+            let synonyms = nonMatches |> Seq.map (fun s -> s, getCloseWords s)
+            let tryFindSynonym = Array.tryFind (fun (w,_) -> words |> Set.contains w)
+            let altMatchWeights =
+                synonyms
+                |> Seq.choose (snd >> tryFindSynonym)
+                |> Seq.map snd
+            matchWeights
+            |> Seq.append altMatchWeights
+            |> Seq.sum
 
     let softMatch (word1:string) (word2:string) =
         if isMatch word1 word2
@@ -78,7 +97,7 @@ module Features =
     let matchCount terms words =
         let terms = terms |> uniqueStems
         let words = words |> uniqueStems
-        getMatches words terms |> Seq.length |> float
+        getMatches words terms
 
     let matchRatio terms words =
         let matches = matchCount terms words

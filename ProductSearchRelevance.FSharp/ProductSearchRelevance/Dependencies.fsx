@@ -13,6 +13,8 @@ Once this is done, the core dependencies are available in the script.
 #r @"StemmersNet/lib/net20/StemmersNet.dll"
 #r @"FSharp.Collections.ParallelSeq/lib/net40/FSharp.Collections.ParallelSeq.dll"
 
+#r "../../../Word2Vec/Word2Vec.Net/bin/Release/Word2Vec.Net.dll"
+
 #load "Utilities.fs"
 #load "Caching.fs"
 
@@ -23,4 +25,5 @@ invalidateCache ()
 #load "Colors.fs"
 #load "Materials.fs"
 #load "Model.fs"
+#load "Word2Vec.fs"
 #load "Features.fs"
