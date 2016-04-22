@@ -85,11 +85,11 @@ let rflearner (sample:Example[]) =
 
     printfn "Training random forest"
 
-    let trees = 1000
-    let proportionHeldOut = 0.25
+    let trees = 1200
+    let proportionHeldOut = 0.22
     let sampleSize = sample.Length
     let featureCount = features.Length
-    let featuresUsed = sqrt (float featureCount) |> ceil |> int
+    let featuresUsed = featureCount / 3 //sqrt (float featureCount) |> ceil |> int
 
     let _info, forest, forestReport =
         alglib.dfbuildrandomdecisionforestx1(
