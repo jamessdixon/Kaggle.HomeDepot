@@ -63,6 +63,10 @@ let features =
         ``Search term has color``
         ``Title has color``
         ``Search and title have matching color``
+//        ``Query material count``
+        ``% search terms are materials``
+//        ``Title material count``
+        ``Query and title material match``
     |]
 
 let rflearner (sample:Example[]) =

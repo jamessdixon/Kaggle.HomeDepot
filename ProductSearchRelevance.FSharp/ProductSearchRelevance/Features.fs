@@ -136,6 +136,103 @@ module Features =
                 | Some t, Some q when t = q -> 1.
                 | _ -> 0.
 
+    let materials = [|
+        "steel"
+        "glass"
+        "plastic"
+        "chrome"
+        "rubber"
+        "fiberglass"
+        "metal"
+        "aluminum"
+        "pvc"
+        "carbon"
+        "copper"
+        "ceramic"
+        "hickory"
+        "granite"
+        "grout"
+        "anodized"
+        "galvanized"
+        "cast"
+        "gel"
+        "acrylic"
+        "cloth"
+        "enamel"
+        "wood"
+        "leather"
+        "gold"
+        "hdf"
+        "mdf"
+        "iron"
+        "latex"
+        "laminate"
+        "polyethylene"
+        "fiberboard"
+        "particle"
+        "composite"
+        "vinyl"
+        "cotton"
+        "microfiber"
+        "stone"
+        "clay"
+        "maple"
+        "marble"
+        "mortar"
+        "neoprene"
+        "nickel"
+        "nylon"
+        "oil"
+        "pine"
+        "resin"
+        "paper"
+        "polypropelene"
+        "polymer"
+        "polyester"
+        "porcelain"
+        "oak"
+        "silicon"
+        "brass"
+        "sponge"
+        "fabric"
+        "tile"
+        "titanium"
+        "urethane"
+        "polyurethane"
+        "walnut"
+        "wax"
+        "wicker"
+        "wire"
+        "wool"
+        "zinc"
+        |]
+
+    let ``Query material count`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                materials |> Seq.where obs.SearchTerm.Contains |> Seq.length |> float
+
+    let ``% search terms are materials`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let materialCount = materials |> Seq.where obs.SearchTerm.Contains |> Seq.length |> float
+                materialCount / (obs.SearchTerm |> whiteSpaceTokenizer |> Array.length |> float)
+
+    let ``Title material count`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                materials |> Seq.where obs.Product.Title.Contains |> Seq.length |> float
+
+    let ``Query and title material match`` : FeatureLearner =
+        fun sample ->
+            fun obs ->
+                let searchMaterials = materials |> Seq.where obs.SearchTerm.Contains |> Set.ofSeq
+                if searchMaterials.Count = 0 then 0.
+                else
+                    let titleMaterials = materials |> Seq.where obs.Product.Title.Contains |> Set.ofSeq
+                    let inter = Set.intersect searchMaterials titleMaterials |> Set.count |> float
+                    inter / float searchMaterials.Count
+
     // weak
     let ``% unique search terms matched in description`` : FeatureLearner =
         fun sample ->
