@@ -6,6 +6,7 @@ module Features =
 
     open HomeDepot.Utilities
     open HomeDepot.Model
+    open System.Collections.Concurrent
 
     type Feature = Observation -> float
 
@@ -63,9 +64,26 @@ module Features =
     *)
 
     let uniqueStems = whiteSpaceTokenizer >> uniques >> Set.map stem
+    let word2vec = Word2Vec.Net.Distance(@"C:\users\Taylor\desktop\Kaggle\output.txt")
+    let w2vDict = ConcurrentDictionary<string, (string * float) array>()
+    let getCloseWords word =
+        w2vDict.GetOrAdd(word, (word2vec.Search >> Array.map (fun bw -> bw.Word, float bw.Distance)))
     let inline isMatch (word:string) term = distance word term <= word.Length / 4
+
     let getMatches words terms =
-        terms |> Seq.where (fun t -> words |> Seq.exists (fun w -> isMatch w t))
+        let matches, noMatches =
+            terms |> Set.partition (fun t -> words |> Seq.exists (fun w -> isMatch w t))
+        if noMatches |> Set.isEmpty then
+            matches |> Seq.map (fun _ -> 1.) |> Seq.sum
+        else
+            let synonyms = noMatches |> Seq.map (fun s -> s, getCloseWords s)
+            let tryFind ss =
+                ss |> Array.tryFind (fun (w,d) -> words |> Set.contains w)
+            let altMatches =
+                synonyms
+                |> Seq.choose (fun (_,ss) -> tryFind ss)
+                |> Seq.map snd
+            matches |> Seq.map (fun _ -> 1.) |> Seq.append altMatches |> Seq.sum
 
     let softMatch (word1:string) (word2:string) =
         if isMatch word1 word2
@@ -78,7 +96,7 @@ module Features =
     let matchCount terms words =
         let terms = terms |> uniqueStems
         let words = words |> uniqueStems
-        getMatches words terms |> Seq.length |> float
+        getMatches words terms
 
     let matchRatio terms words =
         let matches = matchCount terms words
@@ -114,6 +132,16 @@ module Features =
         fun sample ->
             fun obs -> 
                 matchCount obs.SearchTerm obs.Product.Description
+
+    let ``Word2Vec matches in title`` : FeatureLearner =
+        fun sample ->
+            let distance = Word2Vec.Net.Distance(@"C:\users\Taylor\desktop\Kaggle\output.txt")
+            fun obs ->
+                let terms = obs.SearchTerm |> whiteSpaceTokenizer |> uniques
+                let closeWords = terms |> Seq.collect distance.Search |> Seq.map (fun bw -> bw.Word) |> Set.ofSeq
+                let allTerms = terms + closeWords
+                let titleWords = obs.Product.Title |> whiteSpaceTokenizer |> uniques
+                Set.intersect allTerms titleWords |> Set.count |> float
 
     let ``Search term has color`` : FeatureLearner =
         fun sample ->
