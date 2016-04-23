@@ -67,21 +67,24 @@ module Features =
     let inline isMatch (word:string) term = distance word term <= word.Length / 4
 
     open Word2Vec
-    let getMatches words terms =
+    let matchCount words terms =
+        let words' = words |> whiteSpaceTokenizer |> uniques
+        let terms' = terms |> whiteSpaceTokenizer |> uniques
         // split terms by matched and unmatched
         let matches, nonMatches =
-            terms |> Set.partition (fun t -> words |> Seq.exists (fun w -> isMatch w t))
+            terms' |> Set.partition (fun t -> words' |> Seq.exists (fun w -> isMatch (stem w) (stem t)))
         let getMatchWeight _ = 1.
         let matchWeights = matches |> Seq.map getMatchWeight
         if nonMatches |> Set.isEmpty then // all terms matched
             matchWeights |> Seq.sum
         else // some terms didn't match, try matching those on word2vec synonyms
             let synonyms = nonMatches |> Seq.map (fun s -> s, getCloseWords s)
-            let tryFindSynonym = Array.tryFind (fun (w,_) -> words |> Set.contains w)
+            let tryFindSynonym = Array.tryFind (fun (w,_) -> words' |> Set.contains w)
             let altMatchWeights =
                 synonyms
                 |> Seq.choose (snd >> tryFindSynonym)
                 |> Seq.map snd
+                |> Seq.map (fun w -> w * 1.2) // further discount distance weights
             matchWeights
             |> Seq.append altMatchWeights
             |> Seq.sum
@@ -93,11 +96,6 @@ module Features =
             let l2 = word2.Length |> float
             min l1 l2 / max l1 l2
         else 0.
-
-    let matchCount terms words =
-        let terms = terms |> uniqueStems
-        let words = words |> uniqueStems
-        getMatches words terms
 
     let matchRatio terms words =
         let matches = matchCount terms words
