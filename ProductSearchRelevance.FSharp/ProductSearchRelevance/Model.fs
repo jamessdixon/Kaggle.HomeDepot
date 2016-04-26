@@ -7,6 +7,8 @@ module Model =
 
     open FSharp.Data
 
+    open HomeDepot.Caching
+
     (*
     Prelude: core types
     *)
@@ -34,24 +36,23 @@ module Model =
     type Learner = Example [] -> Predictor
 
     type Quality = {
-        RMSE:float
-        }
+        RMSE:float }
 
     (*
     Data loading
     *)
 
     [<Literal>]
-    let trainPath = @"../data/train.csv"
+    let cachedTrainFile = @"../cache/train.csv"
+    
     [<Literal>]
-    let testPath = @"../data/test.csv"
+    let cachedTestFile = @"../cache/test.csv"
+    
     [<Literal>]
-    let attributesPath = @"../data/attributes.csv"
+    let cachedAttributesFile = @"../cache/attributes.csv"
+    
     [<Literal>]
-    let productsPath =  @"../data/product_descriptions.csv"
-
-    [<Literal>]
-    let submissionPath =  @"../data/"
+    let cachedDescriptionsFile = @"../cache/product_descriptions.csv"
 
     type Train = CsvProvider<trainPath,Schema=",,,,float">
     type Test = CsvProvider<testPath>
@@ -62,16 +63,29 @@ module Model =
 
         printfn "Loading product descriptions"
 
-        AllProducts.GetSample().Rows
-        |> Seq.map (fun row -> row.Product_uid,row.Product_description)
+        AllProducts.Load(cachedDescriptionsFile).Rows
+        |> Seq.map (fun row -> 
+            row.Product_uid, 
+            row.Product_description)
         |> dict
 
+    let preprocessedAttributes =
+
+        printfn "Loading raw attributes"
+
+        AllAttributes.Load(cachedAttributesFile).Rows
+        |> Seq.map (fun x ->
+            x.Product_uid, 
+            x.Name, 
+            x.Value)
+        |> Seq.toArray
+        
     let attributes =
 
         printfn "Loading attributes"
 
-        AllAttributes.GetSample().Rows
-        |> Seq.map (fun x -> x.Name, x.Value)
+        preprocessedAttributes
+        |> Seq.map (fun (id,name,value) -> name,value)
         |> Seq.groupBy fst
         |> Seq.map (fun (key,values) ->
             key,
@@ -82,12 +96,12 @@ module Model =
 
         printfn "Loading product attributes"
 
-        AllAttributes.GetSample().Rows
-        |> Seq.groupBy (fun row -> row.Product_uid)
+        preprocessedAttributes
+        |> Seq.groupBy (fun (id,name,value) -> id)
         |> Seq.map (fun (uid,rows) ->
             uid,
             rows
-            |> Seq.map( fun row -> row.Name, row.Value)
+            |> Seq.map( fun (id,name,value) -> name,value)
             |> Map.ofSeq)
         |> dict
 
@@ -100,7 +114,7 @@ module Model =
 
         printfn "Loading train data"
 
-        Train.GetSample().Rows
+        Train.Load(cachedTrainFile).Rows
         |> Seq.map (fun row ->
             let description = descriptions.[row.Product_uid]
             let attributes = attributesFor (row.Product_uid)
@@ -124,7 +138,7 @@ module Model =
 
         printfn "Loading test data"
 
-        Test.GetSample().Rows
+        Test.Load(cachedTestFile).Rows
         |> Seq.map (fun row ->
             let description = descriptions.[row.Product_uid]
             let attributes = attributesFor (row.Product_uid)
@@ -184,7 +198,9 @@ module Model =
         evaluation
         |> List.iter (fun (block,quality) ->
             printfn "  %i: %.3f" block (quality.RMSE))
+
         let overall = evaluation |> Seq.averageBy (fun (_,x) -> x.RMSE)
+
         printfn "Overall: %.3f" overall
         { RMSE = overall }
 
